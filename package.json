@@ -1,0 +1,8 @@
+{
+  "name": "nath-online-services",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Nath Online Services official static website",
+  "scripts": {"build": "node scripts/build.mjs", "test": "node scripts/check.mjs", "start": "node scripts/serve.mjs"},
+  "engines": {"node": ">=22"}
+}
