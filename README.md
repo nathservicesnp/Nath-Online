@@ -32,10 +32,19 @@ npm run build
 
 ## Cloudflare deployment
 
-The deployment workflow expects a Cloudflare Pages project named `nath-online` and these GitHub environment secrets:
+The Cloudflare Pages project is named `nath-online`. For Cloudflare's direct GitHub integration, use:
+
+- Build command: `npm run build`
+- Deploy command: `npm run deploy:cloudflare`
+- Build output directory: `dist`
+- Root directory: `/`
+
+The optional GitHub Actions deployment workflow requires these repository environment secrets:
 
 - `CLOUDFLARE_API_TOKEN`
 - `CLOUDFLARE_ACCOUNT_ID`
+
+Never commit Cloudflare credentials to this repository.
 
 Connect the custom domain only after staging validation and Founder approval.
 
