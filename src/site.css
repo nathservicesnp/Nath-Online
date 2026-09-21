@@ -38,8 +38,18 @@ em{font-family:inherit;font-style:normal;font-weight:650}
 .cta{background:linear-gradient(110deg,#071d62,#114bd1)}
 .button{border-radius:10px}
 }
+@layer responsive {
+.brand{background:transparent;padding:0;gap:9px}
+.brand .brand-logo{width:66px;height:48px;aspect-ratio:3/2;object-fit:contain;border-radius:8px}
+.brand-name{color:var(--ink)}
+.brand-name strong{font-size:23px;letter-spacing:.08em}
+.brand-name small{font-size:8px;letter-spacing:.12em}
+.hero-logo{background:#020713;padding:0;overflow:hidden}
+.hero-logo .brand-logo{width:100%;max-width:340px;height:auto;aspect-ratio:3/2}
+@media(max-width:480px){.brand .brand-logo{width:48px;height:40px}.brand-name strong{font-size:18px}.brand-name small{font-size:6px}.brand{gap:5px}}
+}
 @layer responsive{
-@media(max-width:1120px){.brand .brand-logo{width:174px}.hero{gap:30px}.hero-art{padding:24px}.quick-services{grid-template-columns:1fr}}
+@media(max-width:1120px){.brand .brand-logo{width:66px}.hero{gap:30px}.hero-art{padding:24px}.quick-services{grid-template-columns:1fr}}
 @media(max-width:800px){.hero{grid-template-columns:1fr}.hero-art{width:100%;max-width:560px}.quick-services{grid-template-columns:1fr 1fr}.hero h1{font-size:clamp(40px,8vw,62px)}}
-@media(max-width:480px){.brand .brand-logo{width:145px}.brand{padding:5px}.header-inner{gap:6px}.hero-art{padding:22px}.quick-services{grid-template-columns:1fr}.hero-logo{padding:12px}.hero-art h2{font-size:28px}.hero{gap:30px}.hero h1{font-size:42px}}
+@media(max-width:480px){.brand .brand-logo{width:48px}.brand{padding:5px}.header-inner{gap:6px}.hero-art{padding:22px}.quick-services{grid-template-columns:1fr}.hero-logo{padding:12px}.hero-art h2{font-size:28px}.hero{gap:30px}.hero h1{font-size:42px}}
 }
