@@ -1,17 +1,17 @@
 # Request and service management
 
-Owner approved: nathservicesnp@gmail.com. Customer sign-in is deferred; customers use their request number and phone for general status only.
+Owner approved: the approved owner email. Customer sign-in is deferred; customers use their request number and phone for general status only.
 
 ## Current state
 
-The implementation is staged. Preview database migrations 0002 and 0003 have been applied. Production management and admin flags remain false; existing customer records have not been migrated or modified. The admin API fails closed until authentication is configured.
+Customer-facing social links, payment logos, pricing and request receipts can be released with both production management and admin flags disabled. The management implementation is staged. Preview database migrations 0002 and 0003 have been applied. Production management and admin flags remain false; existing customer records have not been migrated or modified. The admin API fails closed until authentication is configured.
 
-Cloudflare Access was not enabled on this account. The attempt to create the Zero Trust organization was not executed because automatic approval review reported a usage limit. Do not represent admin sign-in as working until the following setup and verification are complete.
+The owner explicitly approved Cloudflare Access and MFA. The subsequent API attempt failed with Cloudflare authentication error 10000; protected sign-in is still not configured. Do not represent admin sign-in as working until the following setup and verification are complete.
 
 ## Secure activation
 
-1. Enable Cloudflare Zero Trust/Access for account 991d8b7d8bd0b99b21f96a22af07191c. Use the free plan only unless the owner explicitly approves a paid plan. Do not accept contractual terms on the owner's behalf through browser automation.
-2. Create a self-hosted Access application protecting `www.nathonline.com.np/admin` and all child paths, including `/admin/api/*`. Only allow the exact email `nathservicesnp@gmail.com`. Require MFA (TOTP or security key) in addition to email/identity verification. The owner must enrol their own authenticator; never collect its seed or codes in chat.
+1. Enable Cloudflare Zero Trust/Access for account the Nath Cloudflare account. Use the free plan only unless the owner explicitly approves a paid plan. Do not accept contractual terms on the owner's behalf through browser automation.
+2. Create a self-hosted Access application protecting `www.nathonline.com.np/admin` and all child paths, including `/admin/api/*`. Only allow the exact email `the approved owner email`. Require MFA (TOTP or security key) in addition to email/identity verification. The owner must enrol their own authenticator; never collect its seed or codes in chat.
 3. Configure separate preview protection for `nath-official-preview.nathservicesnp.workers.dev/admin` before enabling the preview administrator. Verify both the bare admin path and all subpaths are covered.
 4. Set `ACCESS_TEAM_DOMAIN` to the verified team hostname (without scheme), `ACCESS_AUD` to the application audience, and `ADMIN_EMAILS` to the approved exact owner email. Each environment must use its own audience if separate applications are used.
 5. Set `ADMIN_ENABLED=true` only after the Access policy is verified. The Worker independently validates the JWT signature, RS256 algorithm, issuer, audience, expiry and exact owner email. Never substitute the unsigned email header for JWT validation.
@@ -37,3 +37,5 @@ The private `private-database-copies` directory outside this repository contains
 `node scripts/admin-demo.mjs` serves an explicitly labelled synthetic demo on 127.0.0.1:4182 with an in-memory database. It does not access production, has no real customer data, and must never be deployed. The production Worker has no demo-auth bypass.
 
 Thirteen tests cover legacy request handling, access failure, forged headers, private data boundaries, atomic status history, stale edits, service create/edit/remove, archived-service submission rejection, catalogue escaping and retention. Browser testing confirmed reading a synthetic customer's message, completing their request and seeing the resulting history.
+
+
