@@ -3,8 +3,22 @@
   "version": "1.0.0",
   "private": true,
   "type": "module",
-  "engines": { "node": ">=24" },
+  "engines": {
+    "node": ">=24"
+  },
   "packageManager": "pnpm@11.19.0",
-  "scripts": { "build": "node scripts/build.mjs", "test": "node --test tests/*.test.mjs", "check": "node scripts/build.mjs && node --test tests/*.test.mjs", "dev": "wrangler dev --local" },
-  "devDependencies": { "wrangler": "4.135.0" }
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "test": "node --test tests/*.test.mjs",
+    "check": "node scripts/build.mjs && node --test tests/*.test.mjs",
+    "dev": "wrangler dev --local"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "5.20260920.1",
+    "simple-icons": "16.32.0",
+    "wrangler": "4.135.0"
+  },
+  "dependencies": {
+    "jose": "6.2.12"
+  }
 }
