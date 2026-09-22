@@ -19,12 +19,12 @@
 /* Official Nath identity: original logo, cobalt actions and navy typography. */
 @layer components {
 .brand-logo{display:block;width:205px;height:auto;aspect-ratio:3/1;object-fit:contain}
-.brand{background:#fff;border-radius:10px;padding:5px 9px;flex-shrink:0}
+.brand{background:transparent;border-radius:10px;padding:5px 9px;flex-shrink:0}
 em{font-family:inherit;font-style:normal;font-weight:650}
 .hero{gap:58px;grid-template-columns:1.1fr 1fr}
 .hero h1{font-size:clamp(42px,4.7vw,67px);letter-spacing:-.05em}
 .hero-art{border-radius:28px;background:linear-gradient(145deg,var(--surface),var(--soft));border:1px solid var(--line);padding:30px;min-height:0;box-shadow:0 22px 65px #12357712;color:var(--ink)}
-.hero-logo{background:#fff;border-radius:14px;padding:18px;margin-bottom:28px}
+.hero-logo{background:transparent;border-radius:14px;padding:18px;margin-bottom:28px}
 .hero-logo .brand-logo{width:100%;max-width:340px;margin:auto}
 .hero-art h2{font-size:30px;letter-spacing:-.035em}
 .quick-services{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:24px 0 12px}
@@ -43,3 +43,5 @@ em{font-family:inherit;font-style:normal;font-weight:650}
 @media(max-width:800px){.hero{grid-template-columns:1fr}.hero-art{width:100%;max-width:560px}.quick-services{grid-template-columns:1fr 1fr}.hero h1{font-size:clamp(40px,8vw,62px)}}
 @media(max-width:480px){.brand .brand-logo{width:145px}.brand{padding:5px}.header-inner{gap:6px}.hero-art{padding:22px}.quick-services{grid-template-columns:1fr}.hero-logo{padding:12px}.hero-art h2{font-size:28px}.hero{gap:30px}.hero h1{font-size:42px}}
 }
+
+@layer components{:root[data-theme=dark] .brand-logo{filter:brightness(0) invert(1)}}
