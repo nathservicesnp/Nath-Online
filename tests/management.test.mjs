@@ -6,7 +6,7 @@ import {adminApi,administrator} from '../admin-api.mjs';
 import worker from '../worker.mjs';
 import {catalogPage} from '../catalog.mjs';
 const origin='https://www.nathonline.com.np',actor={email:'owner@example.test',sub:'owner'};
-async function setup(){const sqlite=new DatabaseSync(':memory:');sqlite.exec('PRAGMA foreign_keys=ON');for(const file of ['0001_enquiries.sql','0002_management.sql','0003_seed_catalog.sql','0005_request_finance.sql'])sqlite.exec(await readFile('migrations/'+file,'utf8'));
+async function setup(){const sqlite=new DatabaseSync(':memory:');sqlite.exec('PRAGMA foreign_keys=ON');for(const file of ['0001_enquiries.sql','0002_management.sql','0003_seed_catalog.sql','0005_request_finance.sql','0006_customer_experience.sql'])sqlite.exec(await readFile('migrations/'+file,'utf8'));
  const statement=(sql,args=[])=>({sql,args,bind(...values){return statement(sql,values);},async first(){return sqlite.prepare(sql).get(...args)||null;},async all(){return {results:sqlite.prepare(sql).all(...args)};},async run(){const r=sqlite.prepare(sql).run(...args);return {meta:{changes:Number(r.changes)}};}});
  const DB={prepare:statement,async batch(statements){sqlite.exec('BEGIN');try{const result=[];for(const s of statements)result.push(await s.run());sqlite.exec('COMMIT');return result;}catch(e){sqlite.exec('ROLLBACK');throw e;}}};
  return {sqlite,env:{DB,APP_ENV:'production',MANAGEMENT_ENABLED:'true',SUBMISSIONS_ENABLED:'true',REQUEST_LIMITER:{limit:async()=>({success:true})}}};}
@@ -60,4 +60,25 @@ test('private exports include financial history, neutralize spreadsheet formulas
  const full=await(await call(env,'/exports/'+ref+'.json')).json();assert.equal(full.record.reference,ref);assert.equal(full.finance_history.length,1);assert.ok(!('idempotency_key' in full.record));
  sqlite.prepare("UPDATE enquiries SET status='closed',closed_at=datetime('now','-85 days') WHERE reference=?").run(ref);const retention=await(await call(env,'/retention')).json();assert.equal(retention.days,90);assert.equal(retention.due_soon,1);assert.equal(retention.eligible,0);
  const unsigned=await worker.fetch(request('/admin/api/exports/'+ref+'.json'),env);assert.equal(unsigned.status,401);sqlite.close();
+});
+
+test('customers see only shared quotes; acceptance is versioned, idempotent and hides payment instructions until agreed',async()=>{
+ const {env,sqlite}=await setup();const {reference}=await(await worker.fetch(request('/api/requests','POST',payload),env)).json();const track=()=>worker.fetch(request('/api/track','POST',{reference,phone:payload.phone}),env);
+ const quote={version:0,items:[{description:'Help',kind:'service',paisa:10000}],paid_paisa:0,payment_note:'Draft',quote_shared:false,payment_instructions:'Verified recipient details'};
+ await call(env,'/requests/'+reference+'/finance','PATCH',quote);assert.equal((await(await track()).json()).quote,null);
+ await call(env,'/requests/'+reference+'/finance','PATCH',{...quote,version:1,quote_shared:true});const shown=(await(await track()).json()).quote;assert.equal(shown.payment_instructions,'');
+ const accept=(revision,phone=payload.phone)=>worker.fetch(request('/api/quote-accept','POST',{reference,phone,revision,accept:true}),env);
+ assert.equal((await accept(shown.revision-1)).status,409);assert.equal((await(await accept(shown.revision,'9800000001')).json()).accepted,undefined);
+ assert.equal((await accept(shown.revision)).status,200);assert.equal((await accept(shown.revision)).status,200);assert.equal(sqlite.prepare('SELECT COUNT(*) AS n FROM quote_acceptances').get().n,1);assert.equal((await(await track()).json()).quote.payment_instructions,'Verified recipient details');
+ await call(env,'/requests/'+reference+'/finance','PATCH',{...quote,version:2,quote_shared:true,paid_paisa:5000});assert.equal((await(await track()).json()).quote.accepted,true);
+ await call(env,'/requests/'+reference+'/finance','PATCH',{...quote,version:3,quote_shared:true,items:[{description:'Changed fee',kind:'service',paisa:12000}]});assert.equal((await(await track()).json()).quote.accepted,false);assert.equal((await accept(shown.revision)).status,409);sqlite.close();
+});
+
+test('website guidance and reviews require confirmation, support drafts and reject stale edits',async()=>{
+ const {env,sqlite}=await setup();const review={name:'Example',text_en:'Approved feedback',text_ne:'प्रतिक्रिया',published:true,confirmed:false};
+ assert.equal((await call(env,'/website-content','POST',{id:'review',version:0,content:review})).status,422);
+ assert.equal((await call(env,'/website-content','POST',{id:'review',version:0,content:{...review,published:false}})).status,200);
+ assert.equal((await call(env,'/website-content','POST',{id:'review',version:0,content:review})).status,422);
+ assert.equal((await call(env,'/website-content','POST',{id:'review',version:1,content:{...review,confirmed:true}})).status,200);
+ assert.equal((await call(env,'/website-content','POST',{id:'review',version:1,content:{...review,confirmed:true}})).status,409);sqlite.close();
 });

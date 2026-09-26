@@ -12,16 +12,16 @@ export async function financeApi(request,env,path,actor,readBody){
  }
  const match=path.match(/^\/requests\/(NOS-[A-F0-9]{24})\/finance$/);if(!match)return null;
  if(request.method==='GET'){
-  const record=await env.DB.prepare('SELECT quote_json,paid_paisa,finance_version FROM enquiries WHERE reference=?').bind(match[1]).first();if(!record)return reply({error:'Request not found'},404);
+  const record=await env.DB.prepare('SELECT quote_json,paid_paisa,finance_version,quote_shared,quote_revision,accepted_revision,accepted_at,payment_instructions FROM enquiries WHERE reference=?').bind(match[1]).first();if(!record)return reply({error:'Request not found'},404);
   const history=(await env.DB.prepare('SELECT quote_json,paid_paisa,payment_note,created_at FROM finance_events WHERE reference=? ORDER BY id DESC LIMIT 100').bind(match[1]).all()).results;
-  return reply({items:JSON.parse(record.quote_json),paid_paisa:record.paid_paisa,version:record.finance_version,history});
+  return reply({quote_shared:!!record.quote_shared,quote_revision:record.quote_revision,accepted_revision:record.accepted_revision,accepted_at:record.accepted_at,payment_instructions:record.payment_instructions,items:JSON.parse(record.quote_json),paid_paisa:record.paid_paisa,version:record.finance_version,history});
  }
  if(request.method==='PATCH'){
   const parsed=await readBody(request);if(parsed.error)return parsed.error;const d=parsed.data;
-  if(!validateFinance(d))return reply({error:'Enter item descriptions, valid amounts, a payment total no greater than the quote, and a change note.'},422);
+  if((d.quote_shared!==undefined&&typeof d.quote_shared!=='boolean')||(d.payment_instructions!==undefined&&(typeof d.payment_instructions!=='string'||d.payment_instructions.length>1200))||!validateFinance(d))return reply({error:'Enter item descriptions, valid amounts, a payment total no greater than the quote, and a change note.'},422);
   const items=JSON.stringify(d.items.map(x=>({...x,description:x.description.trim()})));
   const results=await env.DB.batch([
-   env.DB.prepare('UPDATE enquiries SET quote_json=?,paid_paisa=?,finance_version=finance_version+1 WHERE reference=? AND finance_version=?').bind(items,d.paid_paisa,match[1],d.version),
+   env.DB.prepare('UPDATE enquiries SET quote_revision=quote_revision+CASE WHEN quote_json<>? OR quote_shared<>? OR payment_instructions<>? THEN 1 ELSE 0 END,quote_shared=?,payment_instructions=?,quote_json=?,paid_paisa=?,finance_version=finance_version+1 WHERE reference=? AND finance_version=?').bind(items,+!!d.quote_shared,d.payment_instructions||'',+!!d.quote_shared,d.payment_instructions||'',items,d.paid_paisa,match[1],d.version),
    env.DB.prepare('INSERT INTO finance_events(reference,actor,quote_json,paid_paisa,payment_note) SELECT reference,?,quote_json,paid_paisa,? FROM enquiries WHERE reference=? AND changes()=1').bind(actor.email,d.payment_note.trim(),match[1])
   ]);
   return results[0].meta.changes===1?reply({saved:true}):reply({error:'Quote or payment changed. Reopen the request before saving.'},409);
