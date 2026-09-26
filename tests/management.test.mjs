@@ -52,3 +52,12 @@ test('quotes track verified totals, reject invalid amounts and preserve audit hi
  const final=await(await call(env,'/requests/'+ref+'/finance')).json();assert.equal(final.history.length,2);assert.equal(final.paid_paisa,30000);
  const track=await(await worker.fetch(request('/api/track','POST',{reference:ref,phone:payload.phone}),env)).json();assert.ok(!JSON.stringify(track).includes('Verified'));assert.ok(!('paid_paisa' in track));sqlite.close();
 });
+
+test('private exports include financial history, neutralize spreadsheet formulas and report retention',async()=>{
+ const {env,sqlite}=await setup();const saved=await(await worker.fetch(request('/api/requests','POST',{...payload,name:'=1+1'}),env)).json();const ref=saved.reference;
+ await call(env,'/requests/'+ref+'/finance','PATCH',{version:0,items:[{description:'Help',kind:'service',paisa:10000}],paid_paisa:2500,payment_note:'Verified cash'});
+ const csv=await call(env,'/exports/requests.csv');assert.equal(csv.status,200);assert.equal(csv.headers.get('Cache-Control'),'no-store');assert.match(csv.headers.get('Content-Disposition'),/attachment/);const body=await csv.text();assert.ok(body.includes("'=1+1"));assert.ok(body.includes('100.00'));assert.ok(body.includes('25.00'));assert.ok(body.includes('75.00'));
+ const full=await(await call(env,'/exports/'+ref+'.json')).json();assert.equal(full.record.reference,ref);assert.equal(full.finance_history.length,1);assert.ok(!('idempotency_key' in full.record));
+ sqlite.prepare("UPDATE enquiries SET status='closed',closed_at=datetime('now','-85 days') WHERE reference=?").run(ref);const retention=await(await call(env,'/retention')).json();assert.equal(retention.days,90);assert.equal(retention.due_soon,1);assert.equal(retention.eligible,0);
+ const unsigned=await worker.fetch(request('/admin/api/exports/'+ref+'.json'),env);assert.equal(unsigned.status,401);sqlite.close();
+});

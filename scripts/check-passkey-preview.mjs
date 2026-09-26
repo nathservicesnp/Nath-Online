@@ -27,6 +27,10 @@ try {
  const quote=await fetch(origin+'/admin/api/requests/'+syntheticReference+'/finance',{method:'PATCH',headers:adminHeaders,body:JSON.stringify({version:0,items:[{description:'Test assistance',kind:'service',paisa:10000}],paid_paisa:5000,payment_note:'Synthetic preview verification'})});assert.equal(quote.status,200);
  const finance=await(await fetch(origin+'/admin/api/requests/'+syntheticReference+'/finance',{headers:adminHeaders})).json();assert.equal(finance.paid_paisa,5000);assert.equal(finance.history.length,1);
  const dashboard=await fetch(origin+'/admin',{headers:adminHeaders});assert.equal(dashboard.status,200);assert.ok((await dashboard.text()).includes('finance-form'));
+ const exported=await fetch(origin+'/admin/api/exports/'+syntheticReference+'.json',{headers:adminHeaders});assert.equal(exported.status,200);assert.equal((await exported.json()).finance_history.length,1);
+ const csv=await fetch(origin+'/admin/api/exports/requests.csv?q='+syntheticReference,{headers:adminHeaders});assert.equal(csv.status,200);assert.ok((await csv.text()).includes(syntheticReference));
+ const retention=await fetch(origin+'/admin/api/retention',{headers:adminHeaders});assert.equal((await retention.json()).days,90);
+ console.log('Preview exports and retention checks passed.');
  console.log('Preview overview, quote save, partial payment, audit history and authenticated dashboard checks passed.');
  await call('logout',{});
  const login=await call('login/options',{}),counter=Buffer.alloc(4);counter.writeUInt32BE(1);
