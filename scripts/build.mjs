@@ -5,7 +5,9 @@ import {socials} from '../src/socials.mjs';
 import {services,faq} from '../src/content.mjs';
 await mkdir('dist/assets',{recursive:true});
 const names={};
-for(const name of ['site.css','site.js','admin.js']){const body=await readFile(`src/${name}`);const hash=createHash('sha256').update(body).digest('hex').slice(0,12);names[name]=`/assets/${name.replace('.',`.${hash}.`)}`;await writeFile(`dist${names[name]}`,body);}
+for(const name of ['site.css','site.js','admin.js','admin-login.js']){const body=await readFile(`src/${name}`);const hash=createHash('sha256').update(body).digest('hex').slice(0,12);names[name]=`/assets/${name.replace('.',`.${hash}.`)}`;await writeFile(`dist${names[name]}`,body);}
+const webauthn=await readFile('node_modules/@simplewebauthn/browser/dist/bundle/index.umd.min.js');
+names.webauthn='/assets/passkeys.'+createHash('sha256').update(webauthn).digest('hex').slice(0,12)+'.js';await writeFile('dist'+names.webauthn,webauthn);
 const logo=await readFile('src/assets/nath-logo.png');
 names.logo='/assets/nath-logo.'+createHash('sha256').update(logo).digest('hex').slice(0,12)+'.png';
 await writeFile('dist'+names.logo,logo);
@@ -15,6 +17,7 @@ const brandLogo=`<img class="brand-logo" src="${names.logo}" width="2172" height
 for(const name of ['esewa.webp','connectips.png','bhim.png']){const bytes=await readFile('src/assets/'+name);names[name]='/assets/'+createHash('sha256').update(bytes).digest('hex').slice(0,12)+'-'+name;await writeFile('dist'+names[name],bytes);}
 await mkdir('dist/admin',{recursive:true});
 await writeFile('dist/admin/index.html',(await readFile('src/admin.html','utf8')).replace('__CSS__',names['site.css']).replace('__ADMIN_JS__',names['admin.js']));
+await writeFile('dist/admin/login.html',(await readFile('src/admin-login.html','utf8')).replace('__CSS__',names['site.css']).replace('__WEBAUTHN__',names.webauthn).replace('__LOGIN_JS__',names['admin-login.js']));
 const socialIcons={facebook:brandIcons.siFacebook,instagram:brandIcons.siInstagram,whatsapp:brandIcons.siWhatsapp,tiktok:brandIcons.siTiktok,x:brandIcons.siX};
 const socialLinks=Object.entries(socials).map(([id,url])=>{const brand=socialIcons[id];if(!brand)throw Error('Missing icon '+id);if(!url)return `<span class="social-coming"><svg viewBox="0 0 24 24" aria-hidden="true" fill="currentColor"><path d="${brand.path}"/></svg>${brand.title}<small>Coming soon · छिट्टै</small></span>`;return `<a href="${url}" target="_blank" rel="noopener noreferrer" aria-label="${brand.title}"><svg viewBox="0 0 24 24" aria-hidden="true" fill="currentColor"><path d="${brand.path}"/></svg><span>${brand.title}</span></a>`;}).join('');
 const paths={building:'M3 21h18M5 21V9m14 12V9M3 9l9-6 9 6H3Zm6 4v4m6-4v4',bolt:'m13 2-9 12h7l-1 8 10-12h-7l1-8Z',ticket:'M4 5h16v5a2 2 0 0 0 0 4v5H4v-5a2 2 0 0 0 0-4V5Zm11 0v3m0 3v2m0 3v3',wallet:'M3 6h17v14H3V6Zm0 0V4h14v2m0 6h4v4h-4v-4Z',book:'M12 5v15M3 4c4-1 7 0 9 2 2-2 5-3 9-2v15c-4-1-7 0-9 2-2-2-5-3-9-2V4Z',chat:'M21 11a8 8 0 0 1-8 8H8l-5 3V7a5 5 0 0 1 5-5h5a8 8 0 0 1 8 9ZM7 8h10M7 12h7',arrow:'M4 12h16m-6-6 6 6-6 6',check:'m5 12 4 4L19 6',shield:'m12 2 9 4v6c0 5-9 10-9 10S3 17 3 12V6l9-4Zm-4 10 3 3 5-6',sun:'M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8Zm0-6v2m0 16v2M2 12h2m16 0h2M5 5l1 1m12 12 1 1M5 19l1-1M18 6l1-1'};

@@ -19,6 +19,8 @@
     "wrangler": "4.135.0"
   },
   "dependencies": {
+    "@simplewebauthn/browser": "14.0.0",
+    "@simplewebauthn/server": "14.0.2",
     "jose": "6.2.12"
   }
 }
