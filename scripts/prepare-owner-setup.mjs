@@ -1,0 +1,11 @@
+import {randomBytes,createHash} from 'node:crypto';
+import {writeFileSync} from 'node:fs';
+import {resolve} from 'node:path';
+import {spawnSync} from 'node:child_process';
+const token=randomBytes(32).toString('hex'), hash=createHash('sha256').update(token).digest('hex'), expires=Math.floor(Date.now()/1000)+86400;
+const sql=`INSERT INTO admin_setup(id,token_hash,expires_at) SELECT 1,'${hash}',${expires} WHERE NOT EXISTS(SELECT 1 FROM admin_passkeys) ON CONFLICT(id) DO UPDATE SET token_hash=excluded.token_hash,expires_at=excluded.expires_at; SELECT token_hash='${hash}' AS prepared FROM admin_setup WHERE id=1;`;
+const result=spawnSync(process.execPath,['node_modules/wrangler/bin/wrangler.js','d1','execute','nath-official-enquiries','--remote','--env','production','--command',sql,'--json'],{encoding:'utf8',env:{...process.env,WRANGLER_SEND_METRICS:'false'}});
+if(result.status!==0)throw Error('Owner setup failed; details suppressed.');
+if(!JSON.parse(result.stdout).some(x=>x.results?.some(r=>r.prepared===1)))throw Error('Owner already exists; setup not replaced.');
+writeFileSync(resolve('../private-database-copies/Set-up-admin-passkey.html'),`<!doctype html><html lang="en"><meta charset="utf-8"><meta name="referrer" content="no-referrer"><title>Private Nath owner setup</title><body style="font:18px system-ui;max-width:650px;margin:70px auto;padding:24px"><h1>Set up your admin passkey</h1><p>Private single-use link. Expires ${new Date(expires*1000).toISOString()}.</p><p><a href="https://www.nathonline.com.np/admin/login#${token}">Open secure owner setup</a></p><p>Open in Chrome, Edge or Safari. Choose Create owner passkey and approve with your own device PIN or fingerprint. Keep this file private.</p></body></html>`,{mode:0o600});
+console.log('Private owner setup file created; expires in 24 hours.');

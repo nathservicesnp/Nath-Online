@@ -1,3 +1,4 @@
+import {passkeyAdministrator} from './passkey-auth.mjs';
 import {createRemoteJWKSet,jwtVerify} from 'jose';
 const reply=(body,status=200)=>Response.json(body,{status,headers:{'Cache-Control':'no-store','X-Robots-Tag':'noindex'}});
 const statuses=new Set(['new','contacted','in_progress','closed']);
@@ -6,6 +7,7 @@ const categories=new Set(['government','utilities','travel','banking','education
 const icons=new Set(['building','bolt','ticket','wallet','book','chat']);
 const slug=/^[a-z][a-z0-9-]{1,59}$/;
 export async function administrator(request,env){
+ if(env.ADMIN_AUTH==='passkey')return passkeyAdministrator(request,env);
  if(env.ADMIN_ENABLED!=='true'||!env.ACCESS_TEAM_DOMAIN||!env.ACCESS_AUD||!env.ADMIN_EMAILS)return null;
  if(!/^[a-z0-9-]+\.cloudflareaccess\.com$/.test(env.ACCESS_TEAM_DOMAIN))return null;
  const token=request.headers.get('Cf-Access-Jwt-Assertion');if(!token)return null;
