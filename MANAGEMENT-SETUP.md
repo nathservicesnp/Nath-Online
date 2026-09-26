@@ -26,3 +26,11 @@ Sign-in verifies signatures, one-use challenges, exact origin, relying-party hos
 If all passkeys are lost, a verified Cloudflare operator must confirm ownership, back up data, revoke owner credentials and sessions, then issue a new private setup link. Never delete customer tables. There is no public password reset or individual passkey removal screen. This implementation has not received an independent security audit.
 
 Emergency lockout: set ADMIN_ENABLED=false and redeploy. To revert management rendering also set MANAGEMENT_ENABLED=false. Preserve database tables and customer records.
+
+## Quotes and manual payment records
+
+Migration 0005 adds itemized quotes, cumulative verified payment totals and an append-only change history. Amounts use integer paisa; the API rejects invalid values and payments above the quote. Every edit requires a note and version match. Provider fees are listed separately from Nath charges. The overview counts all retained requests by status.
+
+Printing uses the saved quote, not unsaved edits. Quotes are not tax invoices or proof of payment. There is no payment gateway or automatic payment verification. Refund processing and customer quote acceptance are not implemented. The owner records verified amounts manually; corrections remain visible in history.
+
+These operational records follow existing request retention: closed requests and their linked quote/payment history are deleted after 90 days. Keep any required accounting documents in a separate appropriate system. A longer retention policy requires a separate decision. Roll back application code if needed; preserve the additive schema and data.

@@ -6,7 +6,7 @@ import {adminApi,administrator} from '../admin-api.mjs';
 import worker from '../worker.mjs';
 import {catalogPage} from '../catalog.mjs';
 const origin='https://www.nathonline.com.np',actor={email:'owner@example.test',sub:'owner'};
-async function setup(){const sqlite=new DatabaseSync(':memory:');sqlite.exec('PRAGMA foreign_keys=ON');for(const file of ['0001_enquiries.sql','0002_management.sql','0003_seed_catalog.sql'])sqlite.exec(await readFile('migrations/'+file,'utf8'));
+async function setup(){const sqlite=new DatabaseSync(':memory:');sqlite.exec('PRAGMA foreign_keys=ON');for(const file of ['0001_enquiries.sql','0002_management.sql','0003_seed_catalog.sql','0005_request_finance.sql'])sqlite.exec(await readFile('migrations/'+file,'utf8'));
  const statement=(sql,args=[])=>({sql,args,bind(...values){return statement(sql,values);},async first(){return sqlite.prepare(sql).get(...args)||null;},async all(){return {results:sqlite.prepare(sql).all(...args)};},async run(){const r=sqlite.prepare(sql).run(...args);return {meta:{changes:Number(r.changes)}};}});
  const DB={prepare:statement,async batch(statements){sqlite.exec('BEGIN');try{const result=[];for(const s of statements)result.push(await s.run());sqlite.exec('COMMIT');return result;}catch(e){sqlite.exec('ROLLBACK');throw e;}}};
  return {sqlite,env:{DB,APP_ENV:'production',MANAGEMENT_ENABLED:'true',SUBMISSIONS_ENABLED:'true',REQUEST_LIMITER:{limit:async()=>({success:true})}}};}
@@ -38,4 +38,17 @@ test('pricing reflects edited fees and hides removed services; language switch k
  const asset=()=>new Response('<main id="main" tabindex="-1"></main><a class="language" href="/ne/services/government">नेपाली</a>',{headers:{'Content-Type':'text/html'}});
  const pricing=await(await catalogPage(asset(),env,new URL(origin+'/pricing'))).text();assert.match(pricing,/275/);assert.ok(!pricing.includes('/services/travel'));
  const detail=await(await catalogPage(asset(),env,new URL(origin+'/services/education'))).text();assert.ok(detail.includes('href="/ne/services/education"'));sqlite.close();
+});
+
+test('quotes track verified totals, reject invalid amounts and preserve audit history on stale edits',async()=>{
+ const {env,sqlite}=await setup();const saved=await(await worker.fetch(request('/api/requests','POST',payload),env)).json();const ref=saved.reference;
+ const overview=await(await call(env,'/overview')).json();assert.equal(overview.counts.new,1);
+ const body={version:0,items:[{description:'Assistance',kind:'service',paisa:10000},{description:'Provider fee',kind:'provider',paisa:20000}],paid_paisa:5000,payment_note:'Verified cash payment'};
+ assert.equal((await call(env,'/requests/'+ref+'/finance','PATCH',body)).status,200);
+ assert.equal((await call(env,'/requests/'+ref+'/finance','PATCH',body)).status,409);
+ for(const invalid of [{...body,version:1,paid_paisa:30001},{...body,version:1,paid_paisa:-1},{...body,version:1,items:[{description:'Bad',kind:'service',paisa:1.5}]},{...body,version:1,payment_note:''}])assert.equal((await call(env,'/requests/'+ref+'/finance','PATCH',invalid)).status,422);
+ const record=await(await call(env,'/requests/'+ref+'/finance')).json();assert.equal(record.version,1);assert.equal(record.paid_paisa,5000);assert.equal(record.history.length,1);
+ assert.equal((await call(env,'/requests/'+ref+'/finance','PATCH',{...body,version:1,paid_paisa:30000,payment_note:'Balance verified'})).status,200);
+ const final=await(await call(env,'/requests/'+ref+'/finance')).json();assert.equal(final.history.length,2);assert.equal(final.paid_paisa,30000);
+ const track=await(await worker.fetch(request('/api/track','POST',{reference:ref,phone:payload.phone}),env)).json();assert.ok(!JSON.stringify(track).includes('Verified'));assert.ok(!('paid_paisa' in track));sqlite.close();
 });

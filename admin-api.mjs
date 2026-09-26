@@ -1,3 +1,4 @@
+import {financeApi} from './finance-api.mjs';
 import {passkeyAdministrator} from './passkey-auth.mjs';
 import {createRemoteJWKSet,jwtVerify} from 'jose';
 const reply=(body,status=200)=>Response.json(body,{status,headers:{'Cache-Control':'no-store','X-Robots-Tag':'noindex'}});
@@ -35,6 +36,7 @@ export async function adminApi(request,env,url,actor,readBody){
  const mutation=!['GET','HEAD'].includes(request.method);
  if(mutation&&(request.headers.get('Origin')!==url.origin||request.headers.get('X-Nath-Admin')!=='1'))return reply({error:'Request not allowed'},403);
  const path=url.pathname.replace(/^\/admin\/api/,'');
+ const finance=await financeApi(request,env,path,actor,readBody);if(finance)return finance;
  if(path==='/me'&&request.method==='GET')return reply({email:actor.email});
  if(path==='/requests'&&request.method==='GET'){
   const q=(url.searchParams.get('q')||'').trim().slice(0,100),status=url.searchParams.get('status')||'';
