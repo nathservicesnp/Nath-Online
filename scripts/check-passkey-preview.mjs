@@ -10,7 +10,7 @@ const hash=x=>createHash('sha256').update(x).digest(),b64=x=>Buffer.from(x).toSt
 const key=randomBytes(32).toString('hex'),credentialID=randomBytes(32),id=b64(credentialID);
 function sql(command){const result=spawnSync(process.execPath,['node_modules/wrangler/bin/wrangler.js','d1','execute',db,'--remote','--env','','--command',command,'--json'],{encoding:'utf8',env:{...process.env,WRANGLER_SEND_METRICS:'false'}});if(result.status!==0)throw Error('Preview database operation failed (details suppressed)');return JSON.parse(result.stdout);}
 const state=sql('SELECT (SELECT COUNT(*) FROM admin_passkeys) AS keys_count,(SELECT COUNT(*) FROM admin_setup) AS setup_count');assert.equal(state[0].results[0].keys_count,0);assert.equal(state[0].results[0].setup_count,0);
-let cookies={};
+let cookies={},syntheticReference=null;
 async function call(path,data){const r=await fetch(origin+'/admin/auth/'+path,{method:'POST',headers:{Origin:origin,'Content-Type':'application/json','X-Nath-Admin':'1',Cookie:Object.entries(cookies).map(([k,v])=>k+'='+v).join('; ')},body:JSON.stringify(data)});for(const c of r.headers.getSetCookie()){const [k,v]=c.split(';')[0].split('=');cookies[k]=v;}assert.equal(r.status,200,'Preview authentication step failed: '+path);return r.json();}
 try {
  sql(`INSERT INTO admin_setup VALUES(1,'${hash(key).toString('hex')}',${Math.floor(Date.now()/1000)+600})`);
@@ -20,6 +20,14 @@ try {
  const auth=Buffer.concat([hash(new URL(origin).hostname),Buffer.from([0x45]),Buffer.alloc(4),Buffer.alloc(16),len,credentialID,Buffer.from(pub)]);
  await call('register/verify',{id,rawId:id,type:'public-key',response:{clientDataJSON:b64(JSON.stringify({type:'webauthn.create',challenge:o.challenge,origin})),attestationObject:b64(isoCBOR.encode(new Map([['fmt','none'],['attStmt',new Map()],['authData',auth]]))),transports:['internal']},clientExtensionResults:{}});
  const me=await fetch(origin+'/admin/api/me',{headers:{Cookie:Object.entries(cookies).map(([k,v])=>k+'='+v).join('; ')}});assert.equal(me.status,200);assert.equal((await me.json()).email,'Nath owner');
+
+ const customer=await fetch(origin+'/api/requests',{method:'POST',headers:{Origin:origin,'Content-Type':'application/json','Idempotency-Key':crypto.randomUUID()},body:JSON.stringify({name:'Synthetic Quote Test',phone:'9800000000',service:'education',message:'Disposable preview quote test',consent:true})});assert.equal(customer.status,201);syntheticReference=(await customer.json()).reference;
+ const adminHeaders={Origin:origin,'Content-Type':'application/json','X-Nath-Admin':'1',Cookie:Object.entries(cookies).map(([k,v])=>k+'='+v).join('; ')};
+ const summary=await fetch(origin+'/admin/api/overview',{headers:adminHeaders});assert.equal(summary.status,200);
+ const quote=await fetch(origin+'/admin/api/requests/'+syntheticReference+'/finance',{method:'PATCH',headers:adminHeaders,body:JSON.stringify({version:0,items:[{description:'Test assistance',kind:'service',paisa:10000}],paid_paisa:5000,payment_note:'Synthetic preview verification'})});assert.equal(quote.status,200);
+ const finance=await(await fetch(origin+'/admin/api/requests/'+syntheticReference+'/finance',{headers:adminHeaders})).json();assert.equal(finance.paid_paisa,5000);assert.equal(finance.history.length,1);
+ const dashboard=await fetch(origin+'/admin',{headers:adminHeaders});assert.equal(dashboard.status,200);assert.ok((await dashboard.text()).includes('finance-form'));
+ console.log('Preview overview, quote save, partial payment, audit history and authenticated dashboard checks passed.');
  await call('logout',{});
  const login=await call('login/options',{}),counter=Buffer.alloc(4);counter.writeUInt32BE(1);
  const auth2=Buffer.concat([hash(new URL(origin).hostname),Buffer.from([5]),counter]),client=Buffer.from(JSON.stringify({type:'webauthn.get',challenge:login.challenge,origin}));
@@ -28,6 +36,7 @@ try {
  assert.equal((await fetch(origin+'/admin/api/requests')).status,401);
  console.log('Preview passed: cryptographic registration, owner session, sign-in, logout and unauthenticated denial.');
 }finally {
+ if(syntheticReference&&/^NOS-[A-F0-9]{24}$/.test(syntheticReference))sql(`DELETE FROM enquiries WHERE reference='${syntheticReference}' AND name='Synthetic Quote Test'`);
  // Exact synthetic credential only. Foreign key cascades remove its sessions.
  sql(`DELETE FROM admin_passkeys WHERE id='${id}'; DELETE FROM admin_setup WHERE token_hash='${hash(key).toString('hex')}';`);
  console.log('Synthetic preview passkey and bootstrap removed. Production was not used.');
