@@ -1,3 +1,4 @@
+import {recordsApi} from './records-api.mjs';
 import {financeApi} from './finance-api.mjs';
 import {passkeyAdministrator} from './passkey-auth.mjs';
 import {createRemoteJWKSet,jwtVerify} from 'jose';
@@ -36,6 +37,7 @@ export async function adminApi(request,env,url,actor,readBody){
  const mutation=!['GET','HEAD'].includes(request.method);
  if(mutation&&(request.headers.get('Origin')!==url.origin||request.headers.get('X-Nath-Admin')!=='1'))return reply({error:'Request not allowed'},403);
  const path=url.pathname.replace(/^\/admin\/api/,'');
+ const records=await recordsApi(request,env,url);if(records)return records;
  const finance=await financeApi(request,env,path,actor,readBody);if(finance)return finance;
  if(path==='/me'&&request.method==='GET')return reply({email:actor.email});
  if(path==='/requests'&&request.method==='GET'){
