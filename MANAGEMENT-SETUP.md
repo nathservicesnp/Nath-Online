@@ -34,3 +34,11 @@ Migration 0005 adds itemized quotes, cumulative verified payment totals and an a
 Printing uses the saved quote, not unsaved edits. Quotes are not tax invoices or proof of payment. There is no payment gateway or automatic payment verification. Refund processing and customer quote acceptance are not implemented. The owner records verified amounts manually; corrections remain visible in history.
 
 These operational records follow existing request retention: closed requests and their linked quote/payment history are deleted after 90 days. Keep any required accounting documents in a separate appropriate system. A longer retention policy requires a separate decision. Roll back application code if needed; preserve the additive schema and data.
+
+## Customer website updates
+
+Migration 0006 adds publishable service guidance, one featured customer review and quote acceptance history. All content starts unpublished. The owner confirms checklist/timeline accuracy and permission for review text/display name before publishing in both languages. Payment instructions are per request and remain blank until verified.
+
+Customer tracking uses the existing unpredictable request number plus matching phone. Only explicitly shared quotes are returned, without private notes or customer names. Acceptance records the current quote revision and item snapshot; quote or payment-instruction changes require fresh acceptance. Editing only the received amount does not invalidate acceptance. Payment instructions appear after acceptance. This is request-linked approval, not identity-verified electronic signing or automatic payment.
+
+Quote acceptances follow the existing 90-day closed-request retention and are included in detailed JSON exports. Homepage hours use Nepal time and the published weekly schedule; holiday exceptions are not configured. Task search includes English/Nepali service items. No unverified timelines, payment recipients or reviews are seeded.

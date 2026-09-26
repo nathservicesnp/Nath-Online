@@ -26,8 +26,13 @@ try {
  const summary=await fetch(origin+'/admin/api/overview',{headers:adminHeaders});assert.equal(summary.status,200);
  const quote=await fetch(origin+'/admin/api/requests/'+syntheticReference+'/finance',{method:'PATCH',headers:adminHeaders,body:JSON.stringify({version:0,items:[{description:'Test assistance',kind:'service',paisa:10000}],paid_paisa:5000,payment_note:'Synthetic preview verification'})});assert.equal(quote.status,200);
  const finance=await(await fetch(origin+'/admin/api/requests/'+syntheticReference+'/finance',{headers:adminHeaders})).json();assert.equal(finance.paid_paisa,5000);assert.equal(finance.history.length,1);
+ const shared=await fetch(origin+'/admin/api/requests/'+syntheticReference+'/finance',{method:'PATCH',headers:adminHeaders,body:JSON.stringify({version:1,items:[{description:'Test assistance',kind:'service',paisa:10000}],paid_paisa:5000,payment_note:'Synthetic quote share',quote_shared:true,payment_instructions:'Preview-only instructions'})});assert.equal(shared.status,200);
+ const customerHeaders={Origin:origin,'Content-Type':'application/json'};
+ const tracked=await(await fetch(origin+'/api/track',{method:'POST',headers:customerHeaders,body:JSON.stringify({reference:syntheticReference,phone:'9800000000'})})).json();assert.equal(tracked.quote.payment_instructions,'');
+ const accepted=await fetch(origin+'/api/quote-accept',{method:'POST',headers:customerHeaders,body:JSON.stringify({reference:syntheticReference,phone:'9800000000',revision:tracked.quote.revision,accept:true})});assert.equal(accepted.status,200);assert.equal((await accepted.json()).accepted,true);
+ console.log('Preview customer quote sharing and acceptance passed.');
  const dashboard=await fetch(origin+'/admin',{headers:adminHeaders});assert.equal(dashboard.status,200);assert.ok((await dashboard.text()).includes('finance-form'));
- const exported=await fetch(origin+'/admin/api/exports/'+syntheticReference+'.json',{headers:adminHeaders});assert.equal(exported.status,200);assert.equal((await exported.json()).finance_history.length,1);
+ const exported=await fetch(origin+'/admin/api/exports/'+syntheticReference+'.json',{headers:adminHeaders});assert.equal(exported.status,200);assert.equal((await exported.json()).finance_history.length,2);
  const csv=await fetch(origin+'/admin/api/exports/requests.csv?q='+syntheticReference,{headers:adminHeaders});assert.equal(csv.status,200);assert.ok((await csv.text()).includes(syntheticReference));
  const retention=await fetch(origin+'/admin/api/retention',{headers:adminHeaders});assert.equal((await retention.json()).days,90);
  console.log('Preview exports and retention checks passed.');

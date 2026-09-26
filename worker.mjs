@@ -1,3 +1,4 @@
+import {enrichWebsite} from './website-content.mjs';
 import {passkeyAuth,cleanAuth} from './passkey-auth.mjs';
 import {administrator,adminApi} from './admin-api.mjs';
 import {catalogPage} from './catalog.mjs';
@@ -13,21 +14,31 @@ async function readBody(request){
  const bytes=new Uint8Array(length);let offset=0;for(const part of chunks){bytes.set(part,offset);offset+=part.length;}try{const data=JSON.parse(new TextDecoder('utf-8',{fatal:true}).decode(bytes));return data&&typeof data==='object'&&!Array.isArray(data)?{data}:{error:json({error:'Invalid body'},400)};}catch{return {error:json({error:'Invalid JSON'},400)};}
 }
 async function api(request,env,url){
- if(!['/api/requests','/api/track'].includes(url.pathname))return json({error:'Not found'},404);
+ if(!['/api/requests','/api/track','/api/quote-accept'].includes(url.pathname))return json({error:'Not found'},404);
  if(request.method!=='POST'){const r=json({error:'Method not allowed'},405);r.headers.set('Allow','POST');return r;}
  if(request.headers.get('Origin')!==(env.APP_ENV==='production'?origin:url.origin))return json({error:'Origin not allowed'},403);
  if(!env.DB||!env.REQUEST_LIMITER||env.SUBMISSIONS_ENABLED!=='true')return json({error:'Temporarily unavailable'},503);
  const limit=await env.REQUEST_LIMITER.limit({key:request.headers.get('CF-Connecting-IP')||'local'});if(!limit.success){const r=json({error:'Please wait'},429);r.headers.set('Retry-After','60');return r;}
  const parsed=await readBody(request);if(parsed.error)return parsed.error;const d=parsed.data,phone=phoneOf(d.phone);
- if(url.pathname==='/api/track'){
+ if(url.pathname==='/api/track'||url.pathname==='/api/quote-accept'){
   if(typeof d.reference!=='string'||!/^NOS-[A-F0-9]{24}$/i.test(d.reference.trim())||!/^9[678]\d{8}$/.test(phone))return json({status:null});
   const reference=d.reference.trim().toUpperCase();
   if(env.MANAGEMENT_ENABLED==='true'){
-   const row=await env.DB.prepare('SELECT status,outcome,created_at,updated_at FROM enquiries WHERE reference=? AND phone=?').bind(reference,phone).first();
+   const row=await env.DB.prepare('SELECT status,outcome,created_at,updated_at,quote_json,quote_shared,quote_revision,accepted_revision,accepted_at,payment_instructions FROM enquiries WHERE reference=? AND phone=?').bind(reference,phone).first();
    if(!row)return json({status:null});
+   if(url.pathname==='/api/quote-accept'){
+    if(d.accept!==true||!Number.isInteger(d.revision)||!row.quote_shared||row.quote_json==='[]'||row.quote_revision!==d.revision||row.status==='closed')return json({error:'Quote changed or is unavailable. Check the request again.'},409);
+    const result=await env.DB.batch([
+     env.DB.prepare("UPDATE enquiries SET accepted_revision=quote_revision,accepted_at=datetime('now') WHERE reference=? AND phone=? AND quote_shared=1 AND quote_revision=? AND status<>'closed' AND (accepted_revision IS NULL OR accepted_revision<>quote_revision)").bind(reference,phone,d.revision),
+     env.DB.prepare('INSERT INTO quote_acceptances(reference,revision,quote_json) SELECT reference,quote_revision,quote_json FROM enquiries WHERE reference=? AND changes()=1 ON CONFLICT(reference,revision) DO NOTHING').bind(reference)
+    ]);
+    return result[0].meta.changes===1||row.accepted_revision===row.quote_revision?json({accepted:true}):json({error:'Quote changed. Check again.'},409);
+   }
+   const quote=row.quote_shared&&row.quote_json!=='[]'?{items:JSON.parse(row.quote_json),revision:row.quote_revision,accepted:row.accepted_revision===row.quote_revision,payment_instructions:row.accepted_revision===row.quote_revision?row.payment_instructions:''}:null;
    const history=await env.DB.prepare('SELECT to_status AS status,outcome,created_at FROM request_events WHERE reference=? ORDER BY id DESC LIMIT 30').bind(reference).all();
-   return json({...row,history:history.results});
+   return json({status:row.status,outcome:row.outcome,created_at:row.created_at,updated_at:row.updated_at,history:history.results,quote});
   }
+  if(url.pathname==='/api/quote-accept')return json({error:'Unavailable'},503);
   const row=await env.DB.prepare('SELECT status FROM enquiries WHERE reference = ? AND phone = ?').bind(reference,phone).first();return json({status:row?.status||null});
  }
  const key=request.headers.get('Idempotency-Key');if(!key||!/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(key))return json({error:'Invalid retry identifier'},400);
@@ -55,7 +66,7 @@ export default {
   else if(url.pathname.startsWith('/api/'))response=await api(request,env,url);
   else if(!['GET','HEAD'].includes(request.method))response=json({error:'Method not allowed'},405);
   else if(url.pathname.endsWith('.html')&&url.pathname!=='/404.html')response=Response.redirect(url.origin+(url.pathname==='/index.html'?'/':url.pathname.slice(0,-5))+url.search,308);
-  else {let assetRequest=request;if(env.MANAGEMENT_ENABLED==='true'&&/^\/(ne\/)?services\/[a-z][a-z0-9-]+$/.test(url.pathname))assetRequest=new Request(url.origin+(url.pathname.startsWith('/ne/')?'/ne':'')+'/services/government',request);response=await catalogPage(await env.ASSETS.fetch(assetRequest),env,url);}
+  else {let assetRequest=request;if(env.MANAGEMENT_ENABLED==='true'&&/^\/(ne\/)?services\/[a-z][a-z0-9-]+$/.test(url.pathname))assetRequest=new Request(url.origin+(url.pathname.startsWith('/ne/')?'/ne':'')+'/services/government',request);response=await enrichWebsite(await catalogPage(await env.ASSETS.fetch(assetRequest),env,url),env,url);}
  }catch{console.error(JSON.stringify({event:'request_failed',path:url.pathname.startsWith('/api/')?'api':'page'}));response=json({error:'Temporarily unavailable. Please contact Nath on +977 9867302353.'},503);}return secured(response,env,url);},
  async scheduled(_controller,env){await cleanAuth(env);if(env.DB)await env.DB.prepare("DELETE FROM enquiries WHERE status='closed' AND closed_at IS NOT NULL AND closed_at < datetime('now','-90 days')").run();}
 };
