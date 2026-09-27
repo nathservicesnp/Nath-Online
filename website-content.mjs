@@ -23,7 +23,7 @@ export async function enrichWebsite(response,env,url){
  const content=Object.fromEntries(rows.map(r=>[r.id,JSON.parse(r.data_json)]));let html=await response.text();
  const service=content['service:'+path.slice('/services/'.length)];
  if(path.startsWith('/services/')&&service?.published&&service.confirmed){const c=service;html=html.replace('</main>',`<section class="wrap section compact prose"><h2>${ne?'तयारी सूची':'Before you start'}</h2><ul>${c['checklist_'+lang].split('\n').filter(Boolean).map(x=>`<li>${esc(x)}</li>`).join('')}</ul><h3>${ne?'अनुमानित समय':'Expected timing'}</h3><p>${esc(c['timeline_'+lang])}</p><p>${ne?'यो अनुमान हो; सम्बन्धित निकाय वा प्रदायकको प्रक्रियाले समय फरक हुन सक्छ।':'This is an estimate; authority or provider processing may change the timing.'}</p></section></main>`);}
- if(path==='/request'){html=html.replace(/<option value="([a-z][a-z0-9-]+)">/g,(match,id)=>{const c=content['service:'+id];return c?.published&&c.confirmed?`<option value="${id}" data-guidance="${esc(c['questions_'+lang])}">`:match;});}
+ if(path==='/request'){html=html.replace(/<option value="([a-z][a-z0-9-]+)"([^>]*)>/g,(match,id,attributes)=>{const c=content['service:'+id];return c?.published&&c.confirmed?`<option value="${id}"${attributes} data-guidance="${esc(c['questions_'+lang])}">`:match;});}
  const review=content.review;if(path==='/'&&review?.published&&review.confirmed)html=html.replace('</main>',`<section class="wrap section prose"><p class="eyebrow">${ne?'ग्राहकको अनुभव':'CUSTOMER EXPERIENCE'}</p><blockquote><p>${esc(review['text_'+lang])}</p><footer>${esc(review.name)}</footer></blockquote></section></main>`);
  return new Response(html,{status:response.status,headers:response.headers});
 }
