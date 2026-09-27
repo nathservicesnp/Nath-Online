@@ -75,3 +75,5 @@ em{font-family:inherit;font-style:normal;font-weight:650}
 .availability-badge{font-weight:700;font-size:.85rem;border:1px solid currentColor;border-radius:99px;padding:.3rem .7rem;width:fit-content}.service-card .button{margin-top:1rem;display:inline-flex}
 
 .catalog-controls{display:flex;align-items:end;gap:1rem;flex-wrap:wrap;margin-top:1rem}.catalog-controls label{flex:1;min-width:150px}.service-finder>summary{cursor:pointer;font-weight:700;padding:.5rem}.service-finder[open]{margin-bottom:1.5rem}
+
+.price-list{list-style:none;padding:0;margin:1.5rem 0}.price-list li{display:flex;justify-content:space-between;align-items:center;gap:1rem;padding:1.1rem 0;border-bottom:1px solid currentColor}.price-list small{display:block;margin-top:.3rem;opacity:.75}.price-list strong{white-space:nowrap}@media(max-width:480px){.price-list li{align-items:flex-start;flex-direction:column;gap:.4rem}}
