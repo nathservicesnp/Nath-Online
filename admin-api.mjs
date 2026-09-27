@@ -41,6 +41,7 @@ export async function adminApi(request,env,url,actor,readBody){
  const content=await contentApi(request,env,path,readBody);if(content)return content;
  const records=await recordsApi(request,env,url);if(records)return records;
  const finance=await financeApi(request,env,path,actor,readBody);if(finance)return finance;
+ if(path==='/follow-ups'&&request.method==='GET'){const rows=await env.DB.prepare("SELECT reference,follow_up_at FROM enquiries WHERE status<>'closed' AND follow_up_at IS NOT NULL AND follow_up_at<=datetime('now','+1 day') ORDER BY follow_up_at,reference LIMIT 51").all();return reply({reminders:rows.results.slice(0,50),hasMore:rows.results.length>50});}
  if(path==='/me'&&request.method==='GET')return reply({email:actor.email});
  if(path==='/requests'&&request.method==='GET'){
   const q=(url.searchParams.get('q')||'').trim().slice(0,100),status=url.searchParams.get('status')||'';
@@ -52,7 +53,7 @@ export async function adminApi(request,env,url,actor,readBody){
  }
  const match=path.match(/^\/requests\/(NOS-[A-F0-9]{24})$/);
  if(match&&request.method==='GET'){
-  const record=await env.DB.prepare('SELECT reference,name,phone,service,service_id,service_title,message,status,outcome,internal_note,version,created_at,updated_at,closed_at FROM enquiries WHERE reference=?').bind(match[1]).first();
+  const record=await env.DB.prepare('SELECT reference,name,phone,service,service_id,service_title,message,status,outcome,internal_note,callback_window,follow_up_at,version,created_at,updated_at,closed_at FROM enquiries WHERE reference=?').bind(match[1]).first();
   if(!record)return reply({error:'Request not found'},404);
   const events=await env.DB.prepare('SELECT actor,action,from_status,to_status,outcome,created_at FROM request_events WHERE reference=? ORDER BY id DESC LIMIT 100').bind(match[1]).all();
   return reply({record,events:events.results});
@@ -60,9 +61,11 @@ export async function adminApi(request,env,url,actor,readBody){
  if(match&&request.method==='PATCH'){
   const parsed=await readBody(request);if(parsed.error)return parsed.error;const d=parsed.data;
   if(!statuses.has(d.status)||!outcomes.has(d.outcome)||!Number.isInteger(d.version)||d.version<0||typeof d.internal_note!=='string'||d.internal_note.length>3000||(d.status!=='closed'&&d.outcome!=='')||(d.status==='closed'&&!d.outcome))return reply({error:'Check status, closing result and notes'},422);
+  let follow=d.follow_up_at;if(follow!==undefined&&follow!==null&&(typeof follow!=='string'||!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:00\.000Z$/.test(follow)||!Number.isFinite(Date.parse(follow))||new Date(follow).toISOString()!==follow))return reply({error:'Invalid follow-up time'},422);
+  follow=follow?follow.replace('T',' ').slice(0,19):null;
   const batch=await env.DB.batch([
    env.DB.prepare("INSERT INTO request_events(reference,actor,action,from_status,to_status,outcome) SELECT reference,?,'update',status,?,? FROM enquiries WHERE reference=? AND version=?").bind(actor.email,d.status,d.outcome,match[1],d.version),
-   env.DB.prepare("UPDATE enquiries SET status=?,outcome=?,internal_note=?,version=version+1,updated_at=datetime('now'),closed_at=CASE WHEN ?='closed' THEN COALESCE(closed_at,datetime('now')) ELSE NULL END WHERE reference=? AND version=?").bind(d.status,d.outcome,d.internal_note,d.status,match[1],d.version)
+   env.DB.prepare("UPDATE enquiries SET status=?,outcome=?,internal_note=?,follow_up_at=CASE WHEN ?=1 THEN ? ELSE follow_up_at END,version=version+1,updated_at=datetime('now'),closed_at=CASE WHEN ?='closed' THEN COALESCE(closed_at,datetime('now')) ELSE NULL END WHERE reference=? AND version=?").bind(d.status,d.outcome,d.internal_note,d.follow_up_at===undefined?0:1,follow,d.status,match[1],d.version)
   ]);
   if(batch[1].meta.changes!==1)return reply({error:'This request changed. Reload before saving.'},409);
   return reply({saved:true});
