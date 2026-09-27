@@ -6,7 +6,7 @@ import {adminApi,administrator} from '../admin-api.mjs';
 import worker from '../worker.mjs';
 import {catalogPage} from '../catalog.mjs';
 const origin='https://www.nathonline.com.np',actor={email:'owner@example.test',sub:'owner'};
-async function setup(){const sqlite=new DatabaseSync(':memory:');sqlite.exec('PRAGMA foreign_keys=ON');for(const file of ['0001_enquiries.sql','0002_management.sql','0003_seed_catalog.sql','0005_request_finance.sql','0006_customer_experience.sql','0007_followups.sql'])sqlite.exec(await readFile('migrations/'+file,'utf8'));
+async function setup(){const sqlite=new DatabaseSync(':memory:');sqlite.exec('PRAGMA foreign_keys=ON');for(const file of ['0001_enquiries.sql','0002_management.sql','0003_seed_catalog.sql','0005_request_finance.sql','0006_customer_experience.sql','0007_followups.sql','0008_service_availability.sql'])sqlite.exec(await readFile('migrations/'+file,'utf8'));
  const statement=(sql,args=[])=>({sql,args,bind(...values){return statement(sql,values);},async first(){return sqlite.prepare(sql).get(...args)||null;},async all(){return {results:sqlite.prepare(sql).all(...args)};},async run(){const r=sqlite.prepare(sql).run(...args);return {meta:{changes:Number(r.changes)}};}});
  const DB={prepare:statement,async batch(statements){sqlite.exec('BEGIN');try{const result=[];for(const s of statements)result.push(await s.run());sqlite.exec('COMMIT');return result;}catch(e){sqlite.exec('ROLLBACK');throw e;}}};
  return {sqlite,env:{DB,APP_ENV:'production',MANAGEMENT_ENABLED:'true',SUBMISSIONS_ENABLED:'true',REQUEST_LIMITER:{limit:async()=>({success:true})}}};}
@@ -98,4 +98,14 @@ test('callback preferences and private follow-ups validate and preserve concurre
  assert.equal((await(await call(env,'/follow-ups')).json()).reminders.length,0);
  assert.equal((await call(env,'/requests/'+reference,'PATCH',{...update,version:3,follow_up_at:null})).status,200);
  assert.equal((await(await call(env,'/requests/'+reference)).json()).record.follow_up_at,null);sqlite.close();
+});
+
+test('availability remains visible but blocks new requests until restored',async()=>{
+ const {env,sqlite}=await setup();const s=sqlite.prepare("SELECT * FROM service_catalog WHERE id='travel'").get();const data={...s,items:JSON.parse(s.items_json),active:true,availability:'paused'};
+ assert.equal((await call(env,'/services','POST',data)).status,200);
+ assert.equal((await worker.fetch(request('/api/requests','POST',{...payload,service:'travel'}),env)).status,422);
+ const {serviceCards,serviceDetail}=await import('../catalog.mjs');const paused=sqlite.prepare("SELECT * FROM service_catalog WHERE id='travel'").get();assert.match(serviceCards([paused]),/Temporarily unavailable/);assert.ok(!serviceCards([paused]).includes('/request?service=travel'));assert.ok(!serviceDetail(paused).includes('/request?service=travel'));assert.match(serviceDetail(paused),/What happens next/);
+ assert.equal((await call(env,'/services','POST',{...data,version:2,availability:'invalid'})).status,422);
+ assert.equal((await call(env,'/services','POST',{...data,version:2,availability:'available'})).status,200);
+ assert.equal((await worker.fetch(request('/api/requests','POST',{...payload,service:'travel'}),env)).status,201);sqlite.close();
 });
