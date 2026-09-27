@@ -18,14 +18,14 @@
  const form=document.querySelector('#request-form');if(!form)return;
  form.noValidate=true;
  const submit=form.querySelector('button[type=submit]'),feedback=document.querySelector('#form-feedback');
- const groups=[['service','message'],['name','phone'],['consent']];
+ const groups=[['service','message'],['name','phone','callback_window'],['consent']];
  const titles=[t('Your service','चाहिएको सेवा'),t('Contact details','सम्पर्क विवरण'),t('Review and send','जाँचेर पठाउनुहोस्')];
  const sections=groups.map((names,index)=>{const fieldset=document.createElement('fieldset');fieldset.className='request-step';const legend=element('legend',titles[index]);fieldset.append(legend);for(const name of names){const control=form.elements[name];const label=control?.closest('label');if(label)fieldset.append(label);}form.insertBefore(fieldset,submit);return fieldset;});
  const review=document.createElement('dl');review.className='request-review';sections[2].insertBefore(review,sections[2].children[1]);
  const progress=element('p','','wizard-progress');progress.setAttribute('role','status');progress.tabIndex=-1;form.insertBefore(progress,sections[0]);
  const controls=document.createElement('div');controls.className='actions wizard-controls';const back=element('button',t('Back','पछाडि'),'button secondary'),next=element('button',t('Continue','अगाडि'),'button');back.type=next.type='button';controls.append(back,next);form.insertBefore(controls,submit);
  let step=0;
- function show(){sections.forEach((section,i)=>section.hidden=i!==step);back.hidden=step===0;next.hidden=step===2;submit.hidden=step!==2;progress.textContent=t(`Step ${step+1} of 3: ${titles[step]}`,`चरण ${step+1}/३: ${titles[step]}`);if(step===2){review.replaceChildren();for(const [name,title] of [['service',t('Service','सेवा')],['message',t('Your request','अनुरोध')],['name',t('Name','नाम')],['phone',t('Phone','फोन')]]){const input=form.elements[name];review.append(element('dt',title),element('dd',name==='service'?input.selectedOptions[0]?.textContent:input.value));}}}
+ function show(){sections.forEach((section,i)=>section.hidden=i!==step);back.hidden=step===0;next.hidden=step===2;submit.hidden=step!==2;progress.textContent=t(`Step ${step+1} of 3: ${titles[step]}`,`चरण ${step+1}/३: ${titles[step]}`);if(step===2){review.replaceChildren();for(const [name,title] of [['service',t('Service','सेवा')],['message',t('Your request','अनुरोध')],['name',t('Name','नाम')],['phone',t('Phone','फोन')],['callback_window',t('Callback preference','फोनको प्राथमिकता')]]){const input=form.elements[name];review.append(element('dt',title),element('dd',(name==='service'||name==='callback_window')?input.selectedOptions[0]?.textContent:input.value));}}}
  function advance(){if(form.dataset.busy==='true'||form.dataset.complete==='true')return;for(const input of sections[step].querySelectorAll('input,select,textarea')){if(!input.reportValidity())return;}step=Math.min(2,step+1);show();progress.focus();}
  next.addEventListener('click',advance);back.addEventListener('click',()=>{if(form.dataset.busy==='true'||form.dataset.complete==='true')return;step=Math.max(0,step-1);show();progress.focus();});
  // The existing submission handler remains the only code that sends requests.
