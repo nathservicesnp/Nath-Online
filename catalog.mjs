@@ -22,7 +22,7 @@ export async function catalogPage(response,env,url){
   html=html.replace(/(<link rel="alternate" hreflang="en" href=")[^"]+/,`$1https://www.nathonline.com.np/services/${id}`).replace(/(<link rel="alternate" hreflang="ne" href=")[^"]+/,`$1https://www.nathonline.com.np/ne/services/${id}`);html=html.replace(/(class="language"[^>]*href=")[^"]+/,`$1${ne?'':'/ne'}/services/${id}`).replace(/(name="description" content=")[^"]+/,`$1${escapeHtml(service[ne?'description_ne':'description_en'])}`);status=200;
  }else{
   html=html.replace(/<!--catalog-start-->[\s\S]*?<!--catalog-end-->/g,`<!--catalog-start-->${serviceCards(rows,ne)}<!--catalog-end-->`);
-  html=html.replace(/<!--service-options-start-->[\s\S]*?<!--service-options-end-->/,rows.filter(canRequest).map(s=>`<option value="${s.id}">${escapeHtml(s[ne?'title_ne':'title_en'])}</option>`).join(''));
+  html=html.replace(/<!--service-options-start-->[\s\S]*?<!--service-options-end-->/,rows.filter(canRequest).map(s=>`<option value="${s.id}" data-category="${escapeHtml(s.category)}" data-tasks="${escapeHtml(JSON.stringify(JSON.parse(s.items_json).map(x=>x[ne?1:0])))}">${escapeHtml(s[ne?'title_ne':'title_en'])}</option>`).join(''));
   html=html.replace(/<!--quick-services-start-->[\s\S]*?<!--quick-services-end-->/,rows.slice(0,4).map(s=>`<a href="${ne?'/ne':''}/services/${s.id}">${escapeHtml(s[ne?'title_ne':'title_en'])} →</a>`).join(''));
  }
  return new Response(html,{status,headers:response.headers});
