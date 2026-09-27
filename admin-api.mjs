@@ -29,7 +29,8 @@ export function validateService(d){
  if(fields.some(k=>typeof d[k]!=='string'||!d[k].trim()||d[k].length>(k.startsWith('title')?120:1500)))return null;
  if(!Array.isArray(d.items)||d.items.length<1||d.items.length>20||d.items.some(a=>!Array.isArray(a)||a.length!==2||a.some(x=>typeof x!=='string'||!x.trim()||x.length>200)))return null;
  if(!Number.isInteger(d.starting_price)||d.starting_price<100||d.starting_price>1000000)return null;
- return {...d,...Object.fromEntries(fields.map(k=>[k,d[k].trim()]))};
+ if(!['available','paused','soon'].includes(d.availability??'available'))return null;
+ return {...d,availability:d.availability??'available',...Object.fromEntries(fields.map(k=>[k,d[k].trim()]))};
 }
 // This handler is called only after signature, audience and owner allowlist validation.
 export async function adminApi(request,env,url,actor,readBody){
@@ -75,12 +76,12 @@ export async function adminApi(request,env,url,actor,readBody){
   const parsed=await readBody(request);if(parsed.error)return parsed.error;const d=validateService(parsed.data);if(!d)return reply({error:'Check both languages, category, price and service items'},422);
   if(d.version===0){
    const result=await env.DB.batch([
-    env.DB.prepare('INSERT INTO service_catalog(id,category,icon,title_en,title_ne,description_en,description_ne,note_en,note_ne,items_json,starting_price,active,version,last_actor) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,1,?) ON CONFLICT(id) DO NOTHING').bind(d.id,d.category,d.icon,d.title_en,d.title_ne,d.description_en,d.description_ne,d.note_en,d.note_ne,JSON.stringify(d.items),d.starting_price,+d.active,actor.email),
+    env.DB.prepare('INSERT INTO service_catalog(id,category,icon,title_en,title_ne,description_en,description_ne,note_en,note_ne,items_json,starting_price,active,version,last_actor,availability) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,1,?,?) ON CONFLICT(id) DO NOTHING').bind(d.id,d.category,d.icon,d.title_en,d.title_ne,d.description_en,d.description_ne,d.note_en,d.note_ne,JSON.stringify(d.items),d.starting_price,+d.active,actor.email,d.availability),
     env.DB.prepare("INSERT INTO service_events(service_id,actor,action,version) SELECT id,?,'create',version FROM service_catalog WHERE id=? AND changes()=1").bind(actor.email,d.id)
    ]);if(result[0].meta.changes!==1)return reply({error:'That service ID already exists'},409);
   }else{
    const result=await env.DB.batch([
-    env.DB.prepare("UPDATE service_catalog SET category=?,icon=?,title_en=?,title_ne=?,description_en=?,description_ne=?,note_en=?,note_ne=?,items_json=?,starting_price=?,active=?,version=version+1,last_actor=?,updated_at=datetime('now') WHERE id=? AND version=?").bind(d.category,d.icon,d.title_en,d.title_ne,d.description_en,d.description_ne,d.note_en,d.note_ne,JSON.stringify(d.items),d.starting_price,+d.active,actor.email,d.id,d.version),
+    env.DB.prepare("UPDATE service_catalog SET category=?,icon=?,title_en=?,title_ne=?,description_en=?,description_ne=?,note_en=?,note_ne=?,items_json=?,starting_price=?,active=?,availability=?,version=version+1,last_actor=?,updated_at=datetime('now') WHERE id=? AND version=?").bind(d.category,d.icon,d.title_en,d.title_ne,d.description_en,d.description_ne,d.note_en,d.note_ne,JSON.stringify(d.items),d.starting_price,+d.active,d.availability,actor.email,d.id,d.version),
     env.DB.prepare("INSERT INTO service_events(service_id,actor,action,version) SELECT id,?,'update',version FROM service_catalog WHERE id=? AND changes()=1").bind(actor.email,d.id)
    ]);if(result[0].meta.changes!==1)return reply({error:'This service changed. Reload before saving.'},409);
   }return reply({saved:true});
