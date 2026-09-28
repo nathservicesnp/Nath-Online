@@ -6,7 +6,7 @@ import {adminApi,administrator} from '../admin-api.mjs';
 import worker from '../worker.mjs';
 import {catalogPage} from '../catalog.mjs';
 const origin='https://www.nathonline.com.np',actor={email:'owner@example.test',sub:'owner'};
-async function setup(){const sqlite=new DatabaseSync(':memory:');sqlite.exec('PRAGMA foreign_keys=ON');for(const file of ['0001_enquiries.sql','0002_management.sql','0003_seed_catalog.sql','0005_request_finance.sql','0006_customer_experience.sql','0007_followups.sql','0008_service_availability.sql'])sqlite.exec(await readFile('migrations/'+file,'utf8'));
+async function setup(){const sqlite=new DatabaseSync(':memory:');sqlite.exec('PRAGMA foreign_keys=ON');for(const file of ['0001_enquiries.sql','0002_management.sql','0003_seed_catalog.sql','0005_request_finance.sql','0006_customer_experience.sql','0007_followups.sql','0008_service_availability.sql','0009_request_conversation.sql'])sqlite.exec(await readFile('migrations/'+file,'utf8'));
  const statement=(sql,args=[])=>({sql,args,bind(...values){return statement(sql,values);},async first(){return sqlite.prepare(sql).get(...args)||null;},async all(){return {results:sqlite.prepare(sql).all(...args)};},async run(){const r=sqlite.prepare(sql).run(...args);return {meta:{changes:Number(r.changes)}};}});
  const DB={prepare:statement,async batch(statements){sqlite.exec('BEGIN');try{const result=[];for(const s of statements)result.push(await s.run());sqlite.exec('COMMIT');return result;}catch(e){sqlite.exec('ROLLBACK');throw e;}}};
  return {sqlite,env:{DB,APP_ENV:'production',MANAGEMENT_ENABLED:'true',SUBMISSIONS_ENABLED:'true',REQUEST_LIMITER:{limit:async()=>({success:true})}}};}
@@ -108,4 +108,23 @@ test('availability remains visible but blocks new requests until restored',async
  assert.equal((await call(env,'/services','POST',{...data,version:2,availability:'invalid'})).status,422);
  assert.equal((await call(env,'/services','POST',{...data,version:2,availability:'available'})).status,200);
  assert.equal((await worker.fetch(request('/api/requests','POST',{...payload,service:'travel'}),env)).status,201);sqlite.close();
+});
+
+test('request conversation requires matching phone, protects staff notes, retries once and respects closure',async()=>{
+ const {env,sqlite}=await setup();const {reference}=await(await worker.fetch(request('/api/requests','POST',payload),env)).json();
+ const message={message:'Please confirm your route.',waiting:true,version:0,key:crypto.randomUUID()};
+ assert.equal((await call(env,'/requests/'+reference+'/messages','POST',message)).status,200);
+ assert.equal((await call(env,'/requests/'+reference+'/messages','POST',message)).status,200);
+ assert.equal((await call(env,'/requests/'+reference+'/messages','POST',{...message,waiting:false})).status,409);
+ const track=await(await worker.fetch(request('/api/track','POST',{reference,phone:payload.phone}),env)).json();assert.equal(track.conversation.waiting,true);assert.equal(track.conversation.messages.length,1);assert.ok(!JSON.stringify(track).includes(actor.email));
+ const reply={reference,phone:payload.phone,message:'Butwal to Kathmandu',version:1,key:crypto.randomUUID()};
+ const wrong=await(await worker.fetch(request('/api/reply','POST',{...reply,phone:'9811111111'}),env)).json();assert.ok(!wrong.saved);
+ assert.equal((await worker.fetch(request('/api/reply','POST',{...reply,message:''}),env)).status,422);
+ assert.equal((await worker.fetch(request('/api/reply','POST',reply),env)).status,200);assert.equal((await worker.fetch(request('/api/reply','POST',reply),env)).status,200);
+ const conversation=(await(await call(env,'/requests/'+reference+'/messages')).json());assert.equal(conversation.messages.length,2);assert.equal(conversation.waiting,false);
+ assert.equal((await worker.fetch(request('/api/reply','POST',{...reply,key:crypto.randomUUID()}),env)).status,409);
+ const exported=await(await call(env,'/exports/'+reference+'.json')).json();assert.equal(exported.messages.length,2);
+ sqlite.prepare("UPDATE enquiries SET status='closed',closed_at=datetime('now','-91 days') WHERE reference=?").run(reference);
+ assert.equal((await worker.fetch(request('/api/reply','POST',{...reply,version:2,key:crypto.randomUUID()}),env)).status,409);
+ await worker.scheduled({},env);assert.equal(sqlite.prepare('SELECT count(*) n FROM request_messages').get().n,0);sqlite.close();
 });

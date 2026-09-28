@@ -1,3 +1,4 @@
+import {conversation,sendMessage} from './conversation.mjs';
 import {enrichWebsite} from './website-content.mjs';
 import {passkeyAuth,cleanAuth} from './passkey-auth.mjs';
 import {administrator,adminApi} from './admin-api.mjs';
@@ -14,18 +15,19 @@ async function readBody(request){
  const bytes=new Uint8Array(length);let offset=0;for(const part of chunks){bytes.set(part,offset);offset+=part.length;}try{const data=JSON.parse(new TextDecoder('utf-8',{fatal:true}).decode(bytes));return data&&typeof data==='object'&&!Array.isArray(data)?{data}:{error:json({error:'Invalid body'},400)};}catch{return {error:json({error:'Invalid JSON'},400)};}
 }
 async function api(request,env,url){
- if(!['/api/requests','/api/track','/api/quote-accept'].includes(url.pathname))return json({error:'Not found'},404);
+ if(!['/api/requests','/api/track','/api/quote-accept','/api/reply'].includes(url.pathname))return json({error:'Not found'},404);
  if(request.method!=='POST'){const r=json({error:'Method not allowed'},405);r.headers.set('Allow','POST');return r;}
  if(request.headers.get('Origin')!==(env.APP_ENV==='production'?origin:url.origin))return json({error:'Origin not allowed'},403);
  if(!env.DB||!env.REQUEST_LIMITER||env.SUBMISSIONS_ENABLED!=='true')return json({error:'Temporarily unavailable'},503);
  const limit=await env.REQUEST_LIMITER.limit({key:request.headers.get('CF-Connecting-IP')||'local'});if(!limit.success){const r=json({error:'Please wait'},429);r.headers.set('Retry-After','60');return r;}
  const parsed=await readBody(request);if(parsed.error)return parsed.error;const d=parsed.data,phone=phoneOf(d.phone);
- if(url.pathname==='/api/track'||url.pathname==='/api/quote-accept'){
+ if(url.pathname==='/api/track'||url.pathname==='/api/quote-accept'||url.pathname==='/api/reply'){
   if(typeof d.reference!=='string'||!/^NOS-[A-F0-9]{24}$/i.test(d.reference.trim())||!/^9[678]\d{8}$/.test(phone))return json({status:null});
   const reference=d.reference.trim().toUpperCase();
   if(env.MANAGEMENT_ENABLED==='true'){
    const row=await env.DB.prepare('SELECT status,outcome,created_at,updated_at,quote_json,quote_shared,quote_revision,accepted_revision,accepted_at,payment_instructions FROM enquiries WHERE reference=? AND phone=?').bind(reference,phone).first();
    if(!row)return json({status:null});
+   if(url.pathname==='/api/reply')return sendMessage(env.DB,reference,'customer',d);
    if(url.pathname==='/api/quote-accept'){
     if(d.accept!==true||!Number.isInteger(d.revision)||!row.quote_shared||row.quote_json==='[]'||row.quote_revision!==d.revision||row.status==='closed')return json({error:'Quote changed or is unavailable. Check the request again.'},409);
     const result=await env.DB.batch([
@@ -36,9 +38,9 @@ async function api(request,env,url){
    }
    const quote=row.quote_shared&&row.quote_json!=='[]'?{items:JSON.parse(row.quote_json),revision:row.quote_revision,accepted:row.accepted_revision===row.quote_revision,payment_instructions:row.accepted_revision===row.quote_revision?row.payment_instructions:''}:null;
    const history=await env.DB.prepare('SELECT to_status AS status,outcome,created_at FROM request_events WHERE reference=? ORDER BY id DESC LIMIT 30').bind(reference).all();
-   return json({status:row.status,outcome:row.outcome,created_at:row.created_at,updated_at:row.updated_at,history:history.results,quote});
+   return json({status:row.status,outcome:row.outcome,created_at:row.created_at,updated_at:row.updated_at,history:history.results,quote,conversation:await conversation(env.DB,reference)});
   }
-  if(url.pathname==='/api/quote-accept')return json({error:'Unavailable'},503);
+  if(url.pathname!=='/api/track')return json({error:'Unavailable'},503);
   const row=await env.DB.prepare('SELECT status FROM enquiries WHERE reference = ? AND phone = ?').bind(reference,phone).first();return json({status:row?.status||null});
  }
  const key=request.headers.get('Idempotency-Key');if(!key||!/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(key))return json({error:'Invalid retry identifier'},400);
