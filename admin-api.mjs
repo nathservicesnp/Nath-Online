@@ -1,3 +1,4 @@
+import {conversationApi} from './conversation.mjs';
 import {contentApi} from './website-content.mjs';
 import {recordsApi} from './records-api.mjs';
 import {financeApi} from './finance-api.mjs';
@@ -39,6 +40,7 @@ export async function adminApi(request,env,url,actor,readBody){
  const mutation=!['GET','HEAD'].includes(request.method);
  if(mutation&&(request.headers.get('Origin')!==url.origin||request.headers.get('X-Nath-Admin')!=='1'))return reply({error:'Request not allowed'},403);
  const path=url.pathname.replace(/^\/admin\/api/,'');
+ const messages=await conversationApi(request,env,path,actor,readBody);if(messages)return messages;
  const content=await contentApi(request,env,path,readBody);if(content)return content;
  const records=await recordsApi(request,env,url);if(records)return records;
  const finance=await financeApi(request,env,path,actor,readBody);if(finance)return finance;
@@ -49,7 +51,7 @@ export async function adminApi(request,env,url,actor,readBody){
   if(status&&!statuses.has(status))return reply({error:'Invalid status'},400);
   const page=Math.max(0,Math.min(10000,Number(url.searchParams.get('page'))||0));
   const where="WHERE (?='' OR status=?) AND (?='' OR instr(lower(reference),lower(?))>0 OR instr(phone,?)>0 OR instr(lower(name),lower(?))>0)";
-  const rows=await env.DB.prepare(`SELECT reference,name,phone,service,service_id,status,outcome,created_at,updated_at,version FROM enquiries ${where} ORDER BY created_at DESC,reference DESC LIMIT 51 OFFSET ?`).bind(status,status,q,q,q,q,Math.floor(page)*50).all();
+  const rows=await env.DB.prepare(`SELECT (SELECT sender FROM request_messages m WHERE m.reference=enquiries.reference ORDER BY id DESC LIMIT 1) AS last_message_sender,reference,name,phone,service,service_id,status,outcome,waiting_customer,created_at,updated_at,version FROM enquiries ${where} ORDER BY created_at DESC,reference DESC LIMIT 51 OFFSET ?`).bind(status,status,q,q,q,q,Math.floor(page)*50).all();
   return reply({requests:rows.results.slice(0,50),hasMore:rows.results.length>50});
  }
  const match=path.match(/^\/requests\/(NOS-[A-F0-9]{24})$/);

@@ -25,5 +25,6 @@ export async function recordsApi(request,env,url){
  if(statusHistory.length>1000||financeHistory.length>1000)return json({error:'This history is too large for a browser export. Request a private database backup instead.'},413);
  const acceptances=(await env.DB.prepare('SELECT revision,quote_json,accepted_at FROM quote_acceptances WHERE reference=? ORDER BY id LIMIT 1001').bind(match[1]).all()).results;
  if(acceptances.length>1000)return json({error:'Acceptance history too large for browser export'},413);
- return download(JSON.stringify({quote_acceptances:acceptances,exported_at:new Date().toISOString(),currency:'NPR',amount_unit:'paisa (100 paisa = 1 NPR)',record,status_history:statusHistory,finance_history:financeHistory},null,2),'application/json;charset=utf-8',match[1]+'.json');
+ const messages=(await env.DB.prepare('SELECT sender,body,actor,created_at FROM request_messages WHERE reference=? ORDER BY id LIMIT 1001').bind(match[1]).all()).results;if(messages.length>1000)return json({error:'Message history too large for browser export'},413);
+ return download(JSON.stringify({messages,quote_acceptances:acceptances,exported_at:new Date().toISOString(),currency:'NPR',amount_unit:'paisa (100 paisa = 1 NPR)',record,status_history:statusHistory,finance_history:financeHistory},null,2),'application/json;charset=utf-8',match[1]+'.json');
 }
