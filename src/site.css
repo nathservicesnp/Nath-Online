@@ -109,3 +109,7 @@ em{font-family:inherit;font-style:normal;font-weight:650}
 @media(max-width:900px){.hero{grid-template-columns:1fr;gap:24px}.hero-art{display:none}.hero .lead{max-width:650px}}
 @media(max-width:700px){.hero{padding-block:28px}.page-intro{padding-block:24px 18px}.section{padding-bottom:48px}.hero-search{padding:14px}.service-card{padding:20px}.catalog-controls{align-items:stretch}.catalog-controls>label,.more-filters{flex-basis:100%;max-width:none}}
 }
+#track-feedback .next-action-card{border-left:4px solid var(--green);background:var(--soft)}
+#track-feedback section h3{margin-top:0}
+#content-preview{margin-block:20px}
+#attention-list>p{padding-block:10px;border-bottom:1px solid var(--line)}

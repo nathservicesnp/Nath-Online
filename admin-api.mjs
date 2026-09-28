@@ -44,6 +44,7 @@ export async function adminApi(request,env,url,actor,readBody){
  const content=await contentApi(request,env,path,readBody);if(content)return content;
  const records=await recordsApi(request,env,url);if(records)return records;
  const finance=await financeApi(request,env,path,actor,readBody);if(finance)return finance;
+ if(path==='/attention'&&request.method==='GET'){const rows=await env.DB.prepare("SELECT reference,status,follow_up_at,updated_at,(SELECT sender FROM request_messages m WHERE m.reference=enquiries.reference ORDER BY id DESC LIMIT 1) AS last_sender FROM enquiries WHERE status<>'closed' AND (status='new' OR follow_up_at<=datetime('now') OR (SELECT sender FROM request_messages m WHERE m.reference=enquiries.reference ORDER BY id DESC LIMIT 1)='customer') ORDER BY CASE WHEN follow_up_at<=datetime('now') THEN 0 WHEN (SELECT sender FROM request_messages m WHERE m.reference=enquiries.reference ORDER BY id DESC LIMIT 1)='customer' THEN 1 ELSE 2 END,updated_at,reference LIMIT 51").all();return reply({requests:rows.results.slice(0,50),hasMore:rows.results.length>50});}
  if(path==='/follow-ups'&&request.method==='GET'){const rows=await env.DB.prepare("SELECT reference,follow_up_at FROM enquiries WHERE status<>'closed' AND follow_up_at IS NOT NULL AND follow_up_at<=datetime('now','+1 day') ORDER BY follow_up_at,reference LIMIT 51").all();return reply({reminders:rows.results.slice(0,50),hasMore:rows.results.length>50});}
  if(path==='/me'&&request.method==='GET')return reply({email:actor.email});
  if(path==='/requests'&&request.method==='GET'){
