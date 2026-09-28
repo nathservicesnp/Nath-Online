@@ -15,6 +15,8 @@
   next.addEventListener('click',()=>{if(!select.value)return;const path=select.value,id=path.split('/').pop();result.replaceChildren(element('h3',t('2. How would you like to start?','२. कसरी सुरु गर्न चाहनुहुन्छ?')));const links=document.createElement('div');links.className='actions';for(const [url,title] of [[path,t('Understand this service','सेवाबारे बुझ्नुहोस्')],[(ne?'/ne':'')+'/request?service='+encodeURIComponent(id),t('Request help with this','यो काममा सहयोग माग्नुहोस्')]]){const a=element('a',title,'button secondary');a.href=url;links.append(a);}result.append(links,element('p',t('We confirm requirements and charges before starting.','कामअघि आवश्यक विवरण र शुल्क पुष्टि गर्छौँ।')));result.hidden=false;result.focus();});
   select.addEventListener('change',()=>{result.hidden=true;});finder.append(heading,intro,label,next,result);
  }
+ const search=document.querySelector('#service-search');
+ if(search){const shortcuts=element('div','','task-shortcuts');shortcuts.setAttribute('aria-label',t('Task shortcuts','कामका सर्टकट'));for(const [en,np] of [['Passport','राहदानी'],['PAN','PAN'],['Electricity','विद्युत्'],['Bus','बस'],['Scholarship','छात्रवृत्ति']]){const button=element('button',t(en,np),'button secondary');button.type='button';button.addEventListener('click',()=>{search.value=t(en,np);for(const id of ['category-filter','availability-filter']){const field=document.getElementById(id);if(field)field.value='';}search.dispatchEvent(new Event('input'));search.focus();});shortcuts.append(button);}search.after(shortcuts);}
  const form=document.querySelector('#request-form');if(!form)return;
  form.noValidate=true;
  const submit=form.querySelector('button[type=submit]'),feedback=document.querySelector('#form-feedback');
