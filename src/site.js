@@ -31,7 +31,7 @@ document.querySelector('#track-form')?.addEventListener('submit',async e=>{e.pre
 
 const trackReference=document.querySelector('#track-form [name=reference]');if(trackReference&&/^#NOS-[A-F0-9]{24}$/i.test(location.hash)){trackReference.value=location.hash.slice(1);history.replaceState(null,'',location.pathname);}
 
-const serviceSearch=document.querySelector('#service-search');if(serviceSearch){serviceSearch.value=new URLSearchParams(location.search).get('q')||'';serviceSearch.dispatchEvent(new Event('input'));}
+const serviceSearch=document.querySelector('#service-search');if(serviceSearch){serviceSearch.value=new URLSearchParams(location.search).get('q')||'';const category=new URLSearchParams(location.search).get('category');const field=document.querySelector('#category-filter');if(field&&[...field.options].some(o=>o.value===category))field.value=category;serviceSearch.dispatchEvent(new Event('input'));}
 const guidance=document.querySelector('#service-guidance'),serviceChoice=requestForm?.elements.service;
 function updateGuidance(){if(!guidance||!serviceChoice)return;const option=serviceChoice.selectedOptions[0];const prompts={government:say('Which application or correction do you need? Mention the portal or office, if known.','कुन आवेदन वा विवरण सुधार चाहिएको हो? थाहा भए पोर्टल वा कार्यालयको नाम लेख्नुहोस्।'),utilities:say('Which bill and provider do you need help with? Do not share account passwords.','कुन बिल र प्रदायकका लागि सहयोग चाहिएको हो? खाताको पासवर्ड नलेख्नुहोस्।'),travel:say('Tell us your route, travel date and number of passengers. Booking depends on availability.','यात्राको स्थान, मिति र यात्रु संख्या बताउनुहोस्। बुकिङ उपलब्धतामा निर्भर हुन्छ।'),education:say('Name the institution, application and deadline, if known.','संस्था, आवेदन र थाहा भए अन्तिम मिति लेख्नुहोस्।'),banking:say('Describe the guidance you need. Do not share account numbers, PINs or OTPs.','कस्तो मार्गदर्शन चाहिएको हो बताउनुहोस्। खाता नम्बर, PIN वा OTP नलेख्नुहोस्।')};guidance.textContent=option?.dataset.guidance||prompts[serviceChoice.value]||say('Tell us the exact task and any relevant deadline. For travel include route and date; for bills include the provider; for forms include the application name. Do not enter document numbers, passwords, PINs or OTPs.','कामको नाम र समयसीमा बताउनुहोस्। यात्राका लागि स्थान र मिति, बिलका लागि प्रदायक, फारामका लागि आवेदनको नाम लेख्नुहोस्। कागजात नम्बर, पासवर्ड, PIN वा OTP नलेख्नुहोस्।');}
 serviceChoice?.addEventListener('change',updateGuidance);updateGuidance();
@@ -53,3 +53,8 @@ function renderConversation(out,v,form){
 }
 
 if(requestForm&&location.hash.startsWith('#help=')){try{requestForm.elements.message.value=decodeURIComponent(location.hash.slice(6)).slice(0,300);history.replaceState(null,'',location.pathname+location.search);}catch{}}
+
+const serviceMenu=document.querySelector('.nav-services');
+document.addEventListener('keydown',event=>{if(event.key==='Escape'&&serviceMenu?.open){serviceMenu.open=false;serviceMenu.querySelector('summary').focus();}});
+document.addEventListener('click',event=>{if(serviceMenu&&!serviceMenu.contains(event.target))serviceMenu.open=false;});
+nav?.addEventListener('click',event=>{if(event.target.closest('a')){toggle.setAttribute('aria-expanded','false');nav.classList.remove('is-open');}});
