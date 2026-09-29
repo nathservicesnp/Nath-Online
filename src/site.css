@@ -138,3 +138,13 @@ em{font-family:inherit;font-style:normal;font-weight:650}
 :focus-visible{outline:3px solid var(--green);outline-offset:4px}
 #main,.request-row,#request-detail{scroll-margin-top:110px}
 @media(max-width:480px){.site-announcement{padding:14px}.featured-services h2{font-size:22px}}
+
+/* Homepage refinement: readable copy, balanced cards and compact small screens. */
+.hero-copy h1{letter-spacing:-.035em;line-height:1.12;text-wrap:balance}
+.hero-copy .lead{max-width:560px}
+.hero-search{box-shadow:0 8px 24px #071d6206}
+.service-card h3{font-size:21px;line-height:1.35}
+.service-card .service-price{font-weight:650}
+.service-card .button{margin-top:auto}
+.hero+.section,.hero+.featured-services+.section{padding-top:42px}
+@media(max-width:480px){.hero-copy h1{font-size:34px!important}.hero-copy .lead{font-size:15px;line-height:1.65}.hero-search .actions{flex-wrap:nowrap}.hero-search .button{width:auto;padding-inline:14px;flex-shrink:0}.hero-search input{width:0;flex:1}.hero-copy>.actions{gap:10px}.hero-copy>.actions .button{padding-inline:15px}.business-hours{font-size:12px;line-height:1.6}.service-card h3{font-size:20px}.section-head{margin-bottom:24px}}
