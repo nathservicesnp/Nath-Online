@@ -6,7 +6,7 @@ import {adminApi,administrator} from '../admin-api.mjs';
 import worker from '../worker.mjs';
 import {catalogPage} from '../catalog.mjs';
 const origin='https://www.nathonline.com.np',actor={email:'owner@example.test',sub:'owner'};
-async function setup(){const sqlite=new DatabaseSync(':memory:');sqlite.exec('PRAGMA foreign_keys=ON');for(const file of ['0001_enquiries.sql','0002_management.sql','0003_seed_catalog.sql','0005_request_finance.sql','0006_customer_experience.sql','0007_followups.sql','0008_service_availability.sql','0009_request_conversation.sql'])sqlite.exec(await readFile('migrations/'+file,'utf8'));
+async function setup(){const sqlite=new DatabaseSync(':memory:');sqlite.exec('PRAGMA foreign_keys=ON');for(const file of ['0001_enquiries.sql','0002_management.sql','0003_seed_catalog.sql','0005_request_finance.sql','0006_customer_experience.sql','0007_followups.sql','0008_service_availability.sql','0009_request_conversation.sql','0010_named_services.sql'])sqlite.exec(await readFile('migrations/'+file,'utf8'));
  const statement=(sql,args=[])=>({sql,args,bind(...values){return statement(sql,values);},async first(){return sqlite.prepare(sql).get(...args)||null;},async all(){return {results:sqlite.prepare(sql).all(...args)};},async run(){const r=sqlite.prepare(sql).run(...args);return {meta:{changes:Number(r.changes)}};}});
  const DB={prepare:statement,async batch(statements){sqlite.exec('BEGIN');try{const result=[];for(const s of statements)result.push(await s.run());sqlite.exec('COMMIT');return result;}catch(e){sqlite.exec('ROLLBACK');throw e;}}};
  return {sqlite,env:{DB,APP_ENV:'production',MANAGEMENT_ENABLED:'true',SUBMISSIONS_ENABLED:'true',REQUEST_LIMITER:{limit:async()=>({success:true})}}};}
@@ -14,6 +14,42 @@ const request=(path,method='GET',data)=>new Request(origin+path,{method,headers:
 const read=async req=>({data:await req.json()});
 const call=(env,path,method='GET',data)=>{const r=request('/admin/api'+path,method,data);return adminApi(r,env,new URL(r.url),actor,read);};
 const payload={name:'Synthetic Test',phone:'9800000000',service:'education',message:'Please help with my education form',consent:true};
+
+test('named services create requests with distinct identities, and retries never duplicate them',async()=>{
+ const {env,sqlite}=await setup();
+ try {
+  for(const service of ['business-pan','nid','passport','driving-license','hib','other']){
+   const r=request('/api/requests','POST',{...payload,service});
+   const first=await worker.fetch(r.clone(),env);assert.equal(first.status,201);
+   const saved=await first.json();const retry=await worker.fetch(r,env);assert.equal(retry.status,200);assert.equal((await retry.json()).reference,saved.reference);
+   const row=sqlite.prepare('SELECT service_id,service_title FROM enquiries WHERE reference=?').get(saved.reference);
+   assert.equal(row.service_id,service);assert.ok(row.service_title);
+  }
+  assert.equal(sqlite.prepare('SELECT count(*) n FROM enquiries').get().n,6);
+ } finally {sqlite.close();}
+});
+
+test('named service catalogue uses review-only charges and bilingual safe intake guidance',async()=>{
+ const {env,sqlite}=await setup();
+ try {
+  const {serviceCards,serviceDetail}=await import('../catalog.mjs');
+  const rows=sqlite.prepare("SELECT * FROM service_catalog WHERE pricing_mode='quote'").all();assert.equal(rows.length,5);
+  for(const ne of [false,true])for(const row of rows){
+   const html=serviceCards([row],ne)+serviceDetail(row,ne);
+   assert.ok(!html.includes('Rs. 100'));assert.ok(!html.includes('रु. 100'));
+   assert.ok(html.includes('/request?service='+row.id));
+  }
+  const pan=serviceDetail(rows.find(s=>s.id==='business-pan'));
+  assert.match(pan,/not a government application number/);assert.match(pan,/https:\/\/ird.gov.np\/faq/);
+  for(const prefix of ['', '/ne']){
+   const html=await(await catalogPage(new Response('<main><!--service-options-start--><!--service-options-end--></main>',{headers:{'Content-Type':'text/html'}}),env,new URL(origin+prefix+'/request'))).text();
+   assert.match(html,/value="business-pan" data-category="government" data-guidance="[^"]+/);
+   assert.match(html,/value="hib" data-category="government" data-guidance="[^"]+/);
+  }
+  sqlite.exec("UPDATE service_catalog SET active=0 WHERE id='nid'");
+  assert.equal((await worker.fetch(request('/api/requests','POST',{...payload,service:'nid'}),env)).status,422);
+ } finally {sqlite.close();}
+});
 test('admin routes fail closed without configured authentication, including forged identity headers',async()=>{const {env,sqlite}=await setup();for(const path of ['/admin','/admin/api/requests','/admin/index.html']){const r=new Request(origin+path,{headers:{'Cf-Access-Authenticated-User-Email':actor.email,'Cf-Access-Jwt-Assertion':'forged'}});assert.equal((await worker.fetch(r,env)).status,401);}assert.equal(await administrator(request('/admin'),{ADMIN_ENABLED:'true'}),null);assert.equal(await administrator(new Request(origin+'/admin',{headers:{'Cf-Access-Jwt-Assertion':'not.a.valid-jwt'}}),{ADMIN_ENABLED:'true',ACCESS_TEAM_DOMAIN:'example.cloudflareaccess.com',ACCESS_AUD:'expected',ADMIN_EMAILS:actor.email}),null);sqlite.close();});
 test('admin can read request content, update completion, reopen, and cannot overwrite a newer change',async()=>{const {env,sqlite}=await setup();const saved=await(await worker.fetch(request('/api/requests','POST',payload),env)).json();const ref=saved.reference;assert.ok(ref);
  const original=await(await call(env,'/requests/'+ref)).json();assert.equal(original.record.message,payload.message);assert.equal(original.record.service_id,'education');
