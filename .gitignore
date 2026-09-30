@@ -4,3 +4,4 @@ dist/
 .dev.vars
 *.log
 release-evidence/
+release-evidence.private/
