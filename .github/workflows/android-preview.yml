@@ -41,10 +41,7 @@ jobs:
           disable-animations: true
           script: |
             adb install apk-output/Nath-Preview-0.2.apk
-            adb shell am start -W -n np.com.nathonline.preview/.DashboardActivity
-            sleep 3
-            adb shell pidof np.com.nathonline.preview
-            adb exec-out screencap -p > apk-output/android-dashboard.png
+            python3 android/smoke.py
       - uses: actions/upload-artifact@v4
         with:
           name: Nath-Preview-Android
