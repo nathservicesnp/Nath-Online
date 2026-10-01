@@ -1,0 +1,13 @@
+plugins { id 'com.android.application' }
+android {
+    namespace 'np.com.nathonline.preview'
+    compileSdk 35
+    defaultConfig {
+        applicationId 'np.com.nathonline.preview'
+        minSdk 26
+        targetSdk 35
+        versionCode 1
+        versionName '0.1-preview'
+    }
+}
+dependencies { testImplementation 'junit:junit:4.13.2' }
