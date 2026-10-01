@@ -21,7 +21,7 @@ struct NathService: Identifiable {
 
 @main struct NathPreviewApp: App {
     var body: some Scene {
-        WindowGroup { Dashboard().tint(nathGreen) }
+        WindowGroup { Dashboard().tint(nathGreen).preferredColorScheme(.light) }
     }
 }
 
@@ -88,7 +88,7 @@ struct Dashboard: View {
                         Link("WhatsApp", destination: URL(string: "https://wa.me/9779867302353")!)
                     }
                     Section(t("Privacy", "गोपनीयता")) {
-                        Text(t("Preparation checklists are saved on this device. Requests sent through the preview use the website's privacy policy. Do not submit identity documents or medical records in this test version.", "तयारी सूची यही उपकरणमा सुरक्षित हुन्छ। परीक्षण अनुरोधमा वेबसाइटको गोपनीयता नीति लागू हुन्छ। परिचयपत्र वा स्वास्थ्य विवरण नपठाउनुहोस्।"))
+                        Text(t("Checklists are saved in this app and may be included in your device backup. They are not sent to Nath. Requests use the website's privacy policy. Do not submit identity documents or medical records in this test version.", "तयारी सूची यो एपमा सुरक्षित हुन्छ र उपकरणको ब्याकअपमा समावेश हुन सक्छ। सूची नाथलाई पठाइँदैन। अनुरोधमा वेबसाइटको गोपनीयता नीति लागू हुन्छ। परीक्षणमा परिचयपत्र वा स्वास्थ्य विवरण नपठाउनुहोस्।"))
                         NavigationLink(t("Read privacy policy", "गोपनीयता नीति")) {
                             PreviewPage(path: (nepali ? "/ne" : "") + "/privacy")
                         }
@@ -121,7 +121,7 @@ struct PreparationView: View {
     var body: some View {
         List {
             Section(t("My preparation", "मेरो तयारी")) {
-                Text(t("This checklist works offline and is saved only on this device. These are planning steps, not an official document list.", "यो सूची अफलाइन चल्छ र यही उपकरणमा मात्र सुरक्षित हुन्छ। यो आधिकारिक कागजात सूची होइन।"))
+                Text(t("This checklist works offline and is saved in this app. These are planning steps, not an official document list.", "यो सूची अफलाइन चल्छ र यो एपमा सुरक्षित हुन्छ। यो आधिकारिक कागजात सूची होइन।"))
                 ForEach(0..<en.count, id: \.self) { index in
                     Toggle(nepali ? ne[index] : en[index], isOn: checked(index)).padding(.vertical, 8)
                 }
