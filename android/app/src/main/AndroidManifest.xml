@@ -1,6 +1,6 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <uses-permission android:name="android.permission.INTERNET" />
-    <application android:label="NATH" android:icon="@mipmap/ic_launcher" android:roundIcon="@mipmap/ic_launcher" android:allowBackup="false" android:usesCleartextTraffic="false" android:theme="@style/NathTheme">
+    <application android:label="Nath Online Services" android:icon="@mipmap/ic_launcher" android:roundIcon="@mipmap/ic_launcher" android:allowBackup="false" android:usesCleartextTraffic="false" android:theme="@style/NathTheme">
         <activity android:name=".MainActivity" android:exported="false" />
         <activity android:name=".DashboardActivity" android:exported="true">
             <intent-filter>
@@ -10,4 +10,5 @@
         </activity>
     </application>
 </manifest>
+
 

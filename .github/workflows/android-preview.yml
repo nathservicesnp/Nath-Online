@@ -23,10 +23,10 @@ jobs:
       - name: Verify signature and record checksum
         run: |
           mkdir -p apk-output
-          cp android/app/build/outputs/apk/debug/app-debug.apk apk-output/NATH-Preview-0.4.apk
-          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose apk-output/NATH-Preview-0.4.apk
+          cp android/app/build/outputs/apk/debug/app-debug.apk apk-output/NATH-Preview-0.5.apk
+          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose apk-output/NATH-Preview-0.5.apk
           cd apk-output
-          sha256sum NATH-Preview-0.4.apk > SHA256SUMS.txt
+          sha256sum NATH-Preview-0.5.apk > SHA256SUMS.txt
       - name: Enable emulator acceleration
         run: |
           echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
@@ -40,13 +40,14 @@ jobs:
           profile: pixel_6
           disable-animations: true
           script: |
-            adb install apk-output/NATH-Preview-0.4.apk
+            adb install apk-output/NATH-Preview-0.5.apk
             python3 android/smoke.py
       - uses: actions/upload-artifact@v4
         with:
           name: Nath-Preview-Android
           path: apk-output/
           retention-days: 30
+
 
 
 

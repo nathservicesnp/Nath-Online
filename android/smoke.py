@@ -29,7 +29,7 @@ def find(prefix):
                 tap(close)
                 time.sleep(2)
                 continue
-        assert not any('NATH isn' in n.attrib.get('text', '') for n in current), 'Nath app ANR'
+        assert not any('Nath Online Services isn' in n.attrib.get('text', '') for n in current), 'Nath app ANR'
         for node in current:
             if node.attrib.get('text', '').startswith(prefix):
                 return node
@@ -64,5 +64,6 @@ tap(find('English'))
 find('Forms, bills & bookings.')
 screenshot('android-dashboard.png')
 print('PASS: dashboard, preparation persistence after restart, and language switching')
+
 
 

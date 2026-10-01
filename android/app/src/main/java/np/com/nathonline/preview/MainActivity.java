@@ -27,7 +27,7 @@ public class MainActivity extends Activity {
             return insets;
         });
         TextView title = new TextView(this);
-        title.setText("NATH · Preview · Test requests only");
+        title.setText("Nath Online Services · Preview");
         title.setTextSize(17);
         title.setTextColor(Color.WHITE);
         title.setBackgroundColor(Color.rgb(18, 75, 221));
@@ -100,4 +100,5 @@ public class MainActivity extends Activity {
         super.onDestroy();
     }
 }
+
 
