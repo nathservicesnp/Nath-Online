@@ -27,6 +27,24 @@ jobs:
           "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose apk-output/Nath-Preview-0.2.apk
           cd apk-output
           sha256sum Nath-Preview-0.2.apk > SHA256SUMS.txt
+      - name: Enable emulator acceleration
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Install and launch Android preview
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          arch: x86_64
+          profile: pixel_6
+          disable-animations: true
+          script: |
+            adb install apk-output/Nath-Preview-0.2.apk
+            adb shell am start -W -n np.com.nathonline.preview/.DashboardActivity
+            sleep 3
+            adb shell pidof np.com.nathonline.preview
+            adb exec-out screencap -p > apk-output/android-dashboard.png
       - uses: actions/upload-artifact@v4
         with:
           name: Nath-Preview-Android
