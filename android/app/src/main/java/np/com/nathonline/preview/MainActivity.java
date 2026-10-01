@@ -72,7 +72,8 @@ public class MainActivity extends Activity {
         });
         root.addView(web, new LinearLayout.LayoutParams(-1, 0, 1));
         setContentView(root);
-        web.loadUrl(NavigationPolicy.HOME);
+        String startUrl = getIntent().getStringExtra("url");
+        web.loadUrl(NavigationPolicy.internal(startUrl) ? startUrl : NavigationPolicy.HOME);
     }
     private void addButton(LinearLayout row, String text, Runnable action) {
         Button button = new Button(this);

@@ -23,12 +23,13 @@ jobs:
       - name: Verify signature and record checksum
         run: |
           mkdir -p apk-output
-          cp android/app/build/outputs/apk/debug/app-debug.apk apk-output/Nath-Preview-0.1.apk
-          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose apk-output/Nath-Preview-0.1.apk
+          cp android/app/build/outputs/apk/debug/app-debug.apk apk-output/Nath-Preview-0.2.apk
+          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose apk-output/Nath-Preview-0.2.apk
           cd apk-output
-          sha256sum Nath-Preview-0.1.apk > SHA256SUMS.txt
+          sha256sum Nath-Preview-0.2.apk > SHA256SUMS.txt
       - uses: actions/upload-artifact@v4
         with:
           name: Nath-Preview-Android
           path: apk-output/
           retention-days: 30
+
