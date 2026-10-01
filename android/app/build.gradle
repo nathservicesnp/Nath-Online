@@ -6,8 +6,9 @@ android {
         applicationId 'np.com.nathonline.preview'
         minSdk 26
         targetSdk 35
-        versionCode 3
-        versionName '0.3-preview'
+        versionCode 4
+        versionName '0.4-preview'
     }
 }
 dependencies { testImplementation 'junit:junit:4.13.2' }
+
