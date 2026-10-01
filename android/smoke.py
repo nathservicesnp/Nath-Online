@@ -19,7 +19,7 @@ def tap(node):
     adb('shell', 'input', 'tap', str((left + right) // 2), str((top + bottom) // 2))
 
 def find(prefix):
-    for _ in range(10):
+    for attempt in range(10):
         current = nodes()
         # A slow CI launcher can show its own ANR. Never suppress a Nath ANR.
         launcher_error = any('Quickstep isn' in n.attrib.get('text', '') for n in current)
@@ -33,12 +33,15 @@ def find(prefix):
         for node in current:
             if node.attrib.get('text', '').startswith(prefix):
                 return node
+        if attempt % 2 == 1:
+            width, height = map(int, re.findall(r'(\d+)x(\d+)', adb('shell', 'wm', 'size'))[0])
+            adb('shell', 'input', 'swipe', str(width // 2), str(height * 3 // 4), str(width // 2), str(height // 3), '300')
         time.sleep(2)
     raise AssertionError('Missing UI: ' + prefix)
 
 def launch():
     adb('shell', 'am', 'start', '-W', '-n', PACKAGE + '/.DashboardActivity')
-    find('NATH ONLINE SERVICES')
+    find('Forms, bills & bookings.')
 
 def screenshot(name):
     Path('apk-output', name).write_bytes(subprocess.check_output(['adb', 'exec-out', 'screencap', '-p']))
@@ -56,8 +59,9 @@ tap(find('Business PAN'))
 assert find('Describe the help I need').attrib['checked'] == 'true', 'Checklist did not persist'
 tap(find('Back to services'))
 tap(find('नेपाली'))
-find('सबै सेवा।')
+find('फाराम, बिल र बुकिङ।')
 tap(find('English'))
-find('All services.')
+find('Forms, bills & bookings.')
 screenshot('android-dashboard.png')
 print('PASS: dashboard, preparation persistence after restart, and language switching')
+

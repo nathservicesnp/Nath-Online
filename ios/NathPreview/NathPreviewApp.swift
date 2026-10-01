@@ -2,7 +2,9 @@ import SwiftUI
 import SafariServices
 
 private let previewBase = "https://nath-official-preview.nathservicesnp.workers.dev"
-private let nathGreen = Color(red: 18 / 255, green: 62 / 255, blue: 57 / 255)
+private let nathBlue = Color(red: 18 / 255, green: 75 / 255, blue: 221 / 255)
+private let nathInk = Color(red: 16 / 255, green: 30 / 255, blue: 72 / 255)
+private let nathPaper = Color(red: 247 / 255, green: 249 / 255, blue: 255 / 255)
 
 struct NathService: Identifiable {
     let id: String
@@ -21,7 +23,7 @@ struct NathService: Identifiable {
 
 @main struct NathPreviewApp: App {
     var body: some Scene {
-        WindowGroup { Dashboard().tint(nathGreen).preferredColorScheme(.light) }
+        WindowGroup { Dashboard().tint(nathBlue).preferredColorScheme(.light) }
     }
 }
 
@@ -38,20 +40,35 @@ struct Dashboard: View {
                 List {
                     Section {
                         VStack(alignment: .leading, spacing: 10) {
-                            Text("NATH ONLINE SERVICES").font(.caption.bold())
-                            Text(t("All services.\nOne place.", "सबै सेवा।\nएकै ठाउँमा।"))
-                                .font(.largeTitle.bold())
+                            Image("NathLogo").resizable().scaledToFit()
+                                .frame(width: 190, height: 64).accessibilityLabel("Nath Online Services")
+                            Text(t("LOCAL CARE. NATIONWIDE SUPPORT.", "स्थानीय सेवा। देशभर सहयोग।"))
+                                .font(.caption2.bold()).foregroundStyle(nathBlue)
+                            Text(t("Forms, bills & bookings.", "फाराम, बिल र बुकिङ।"))
+                                .font(.system(size: 32, weight: .semibold))
+                            Text(t("With personal help.", "व्यक्तिगत सहयोगसहित।"))
+                                .font(.system(size: 32, weight: .semibold)).foregroundStyle(nathBlue)
+                            Text(t("Tell our Butwal team what you need. We explain the steps and confirm your charges before work begins.", "बुटवलको हाम्रो टोलीलाई आफ्नो आवश्यकता बताउनुहोस्। कामअघि प्रक्रिया र शुल्क पुष्टि गर्छौँ।"))
+                                .font(.body).foregroundStyle(.secondary)
                             Text(t("PREVIEW · Test details only", "परीक्षण · नमुना विवरण मात्र")).font(.caption)
-                        }.foregroundStyle(nathGreen).padding(.vertical, 16)
+                        }.foregroundStyle(nathInk).padding(.vertical, 12)
                         Toggle("नेपाली / English", isOn: $nepali)
+                        NavigationLink {
+                            PreviewPage(path: (nepali ? "/ne" : "") + "/request")
+                        } label: {
+                            Text(t("Request a service  →", "सेवा अनुरोध  →"))
+                                .font(.headline).foregroundStyle(.white)
+                                .frame(maxWidth: .infinity, alignment: .leading).padding(16)
+                                .background(nathBlue, in: RoundedRectangle(cornerRadius: 7))
+                        }
                     }
-                    Section(t("How can we help?", "के सहयोग चाहिन्छ?")) {
+                    Section(t("Choose the help you need.", "आवश्यक सहयोग छान्नुहोस्।")) {
                         ForEach(NathService.all) { service in
                             NavigationLink {
                                 PreparationView(service: service, nepali: nepali, saved: $preparation)
                             } label: {
                                 Label(nepali ? service.ne : service.en, systemImage: service.icon)
-                                    .padding(.vertical, 10)
+                                    .foregroundStyle(nathInk).padding(.vertical, 10)
                             }
                         }
                     }
@@ -63,7 +80,8 @@ struct Dashboard: View {
                         Text(t("Independent assistance service. Nath is not a government agency. Official requirements and in-person steps must be confirmed.", "नाथ स्वतन्त्र सहयोग सेवा हो, सरकारी निकाय होइन। आधिकारिक प्रक्रिया र उपस्थितिको आवश्यकता पुष्टि गर्नुपर्छ।"))
                             .font(.footnote).foregroundStyle(.secondary)
                     }
-                }.navigationTitle(t("Services", "सेवाहरू"))
+                }.scrollContentBackground(.hidden).background(nathPaper)
+                    .navigationTitle(t("Services", "सेवाहरू")).navigationBarTitleDisplayMode(.inline)
             }.tabItem { Label(t("Services", "सेवाहरू"), systemImage: "square.grid.2x2") }
 
             NavigationStack {

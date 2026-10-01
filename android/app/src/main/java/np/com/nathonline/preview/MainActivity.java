@@ -30,7 +30,7 @@ public class MainActivity extends Activity {
         title.setText("Nath Preview · Test requests only");
         title.setTextSize(17);
         title.setTextColor(Color.WHITE);
-        title.setBackgroundColor(Color.rgb(18, 62, 57));
+        title.setBackgroundColor(Color.rgb(18, 75, 221));
         title.setPadding(20, 16, 20, 16);
         root.addView(title);
         LinearLayout toolbar = new LinearLayout(this);

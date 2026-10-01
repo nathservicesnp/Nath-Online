@@ -22,7 +22,8 @@ public class DashboardActivity extends Activity {
     private SharedPreferences prefs;
     private boolean nepali;
     private LinearLayout content;
-    private final int green = Color.rgb(18, 62, 57);
+    private final int ink = Color.rgb(16, 30, 72);
+    private final int blue = Color.rgb(18, 75, 221);
 
     @Override public void onCreate(Bundle state) {
         super.onCreate(state);
@@ -34,7 +35,7 @@ public class DashboardActivity extends Activity {
     private int dp(int value) { return (int) (value * getResources().getDisplayMetrics().density); }
     private void page(String heading) {
         ScrollView scroll = new ScrollView(this);
-        scroll.setBackgroundColor(Color.rgb(246, 248, 245));
+        scroll.setBackgroundColor(Color.rgb(247, 249, 255));
         scroll.setOnApplyWindowInsetsListener((v, insets) -> {
             v.setPadding(insets.getSystemWindowInsetLeft(), insets.getSystemWindowInsetTop(), insets.getSystemWindowInsetRight(), insets.getSystemWindowInsetBottom());
             return insets;
@@ -44,7 +45,13 @@ public class DashboardActivity extends Activity {
         content.setPadding(dp(20), dp(20), dp(20), dp(28));
         scroll.addView(content);
         setContentView(scroll);
-        label("NATH ONLINE SERVICES", 14, true);
+        ImageView logo = new ImageView(this);
+        logo.setImageResource(R.drawable.nath_logo);
+        logo.setContentDescription("Nath Online Services");
+        logo.setScaleType(ImageView.ScaleType.FIT_START);
+        LinearLayout.LayoutParams logoParams = new LinearLayout.LayoutParams(dp(190), dp(64));
+        logoParams.bottomMargin = dp(16);
+        content.addView(logo, logoParams);
         label(heading, 30, true);
         label(t("PREVIEW · Test details only", "परीक्षण · नमुना विवरण मात्र"), 13, false);
     }
@@ -52,7 +59,7 @@ public class DashboardActivity extends Activity {
         TextView view = new TextView(this);
         view.setText(text);
         view.setTextSize(size);
-        view.setTextColor(green);
+        view.setTextColor(bold ? ink : Color.rgb(83, 97, 126));
         if (bold) view.setTypeface(null, Typeface.BOLD);
         view.setPadding(0, dp(8), 0, dp(12));
         content.addView(view);
@@ -62,13 +69,14 @@ public class DashboardActivity extends Activity {
         button.setText(text);
         button.setAllCaps(false);
         button.setTextSize(17);
-        button.setTextColor(green);
+        button.setTextColor(ink);
         button.setGravity(android.view.Gravity.CENTER_VERTICAL | android.view.Gravity.START);
         button.setPadding(dp(18), dp(14), dp(18), dp(14));
         GradientDrawable background = new GradientDrawable();
         background.setColor(Color.WHITE);
-        background.setCornerRadius(dp(16));
-        background.setStroke(dp(1), Color.rgb(211, 224, 216));
+        background.setCornerRadius(dp(18));
+        background.setStroke(dp(1), Color.rgb(216, 226, 245));
+        button.setElevation(0);
         button.setBackground(background);
         LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(-1, -2);
         params.setMargins(0, dp(6), 0, dp(6));
@@ -77,13 +85,18 @@ public class DashboardActivity extends Activity {
         button.setOnClickListener(v -> action.run());
     }
     private void home() {
-        page(t("All services.\nOne place.", "सबै सेवा।\nएकै ठाउँमा।"));
+        page(t("Forms, bills & bookings.", "फाराम, बिल र बुकिङ।"));
+        label(t("With personal help.", "व्यक्तिगत सहयोगसहित।"), 28, true);
+        ((TextView) content.getChildAt(content.getChildCount() - 1)).setTextColor(blue);
+        label(t("Tell our Butwal team what you need. We explain the steps and confirm your charges before work begins.", "बुटवलको हाम्रो टोलीलाई आफ्नो आवश्यकता बताउनुहोस्। कामअघि प्रक्रिया र शुल्क पुष्टि गर्छौँ।"), 16, false);
         button(nepali ? "English" : "नेपाली", () -> {
             nepali = !nepali;
             prefs.edit().putBoolean("nepali", nepali).apply();
             home();
         });
-        label(t("How can we help?", "के सहयोग चाहिन्छ?"), 21, true);
+        primary(t("Request a service  →", "सेवा अनुरोध  →"), () -> openPage("/request"));
+        button(t("Track request  →", "अनुरोधको अवस्था  →"), () -> openPage("/track"));
+        label(t("Choose the help you need.", "आवश्यक सहयोग छान्नुहोस्।"), 23, true);
         for (int i = 0; i < IDS.length; i++) {
             final int service = i;
             button((nepali ? NE[i] : EN[i]) + "  ›", () -> service(service));
@@ -108,7 +121,7 @@ public class DashboardActivity extends Activity {
             content.addView(check);
         }
         label(t("Charges will be confirmed before work starts. Do not enter identity numbers, passwords or health records in the preview.", "काम सुरु गर्नुअघि शुल्क जानकारी दिइनेछ। परीक्षणमा परिचयपत्र नम्बर, पासवर्ड वा स्वास्थ्य विवरण नराख्नुहोस्।"), 15, false);
-        button(t("Start a test request", "परीक्षण अनुरोध सुरु गर्नुहोस्"), () -> openPage("/request?service=" + IDS[index]));
+        primary(t("Start a test request", "परीक्षण अनुरोध सुरु गर्नुहोस्"), () -> openPage("/request?service=" + IDS[index]));
         button(t("Back to services", "सेवामा फर्कनुहोस्"), this::home);
     }
     private void staff() {
@@ -135,6 +148,15 @@ public class DashboardActivity extends Activity {
     }
     private void openPage(String path) {
         startActivity(new Intent(this, MainActivity.class).putExtra("url", BASE + (nepali ? "/ne" : "") + path));
+    }
+    private void primary(String text, Runnable action) {
+        button(text, action);
+        Button button = (Button) content.getChildAt(content.getChildCount() - 1);
+        button.setTextColor(Color.WHITE);
+        GradientDrawable background = new GradientDrawable();
+        background.setColor(blue);
+        background.setCornerRadius(dp(7));
+        button.setBackground(background);
     }
     private void external(String url) {
         try { startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(url))); }
