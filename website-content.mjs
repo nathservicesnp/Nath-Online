@@ -12,9 +12,18 @@ export async function contentApi(request,env,path,readBody){
  if(d.content.published===true&&(d.content.confirmed!==true||fields.some(k=>!d.content[k].trim())))return reply({error:'Complete both languages and confirm accuracy/permission before publishing'},422);
  const content=Object.fromEntries(fields.map(k=>[k,d.content[k].trim()]));content.published=d.content.published===true;content.confirmed=d.content.confirmed===true;
  if(d.id==='featured'){const ids=content.service_ids.split(',').map(x=>x.trim()).filter(Boolean);if(ids.length>3||new Set(ids).size!==ids.length||ids.some(id=>!/^[a-z][a-z0-9-]{1,59}$/.test(id)))return reply({error:'Choose up to three different services'},422);const rows=(await env.DB.prepare('SELECT id FROM service_catalog WHERE active=1').all()).results;if(ids.some(id=>!rows.some(s=>s.id===id)))return reply({error:'Choose visible services only'},422);content.service_ids=ids.join(',');}
+ if(d.id==='announcement'){
+  for(const key of ['starts_at','ends_at']){const value=d.content[key]??'';if(typeof value!=='string'||(value&&(!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:00\.000Z$/.test(value)||!Number.isFinite(Date.parse(value))||new Date(value).toISOString()!==value)))return reply({error:'Invalid announcement time'},422);content[key]=value;}
+  if(content.starts_at&&content.ends_at&&content.ends_at<=content.starts_at)return reply({error:'Expiry must be after the start time'},422);
+ }
  const encoded=JSON.stringify(content);
  const result=d.version===0?await env.DB.prepare('INSERT INTO website_content(id,data_json) VALUES(?,?) ON CONFLICT(id) DO NOTHING').bind(d.id,encoded).run():await env.DB.prepare("UPDATE website_content SET data_json=?,version=version+1,updated_at=datetime('now') WHERE id=? AND version=?").bind(encoded,d.id,d.version).run();
  return result.meta.changes===1?reply({saved:true}):reply({error:'Content changed. Reload before saving.'},409);
+}
+export function announcementVisible(value,now=Date.now()){
+ if(!value?.published||!value.confirmed)return false;
+ const start=value.starts_at?Date.parse(value.starts_at):-Infinity,end=value.ends_at?Date.parse(value.ends_at):Infinity;
+ return now>=start&&now<end;
 }
 export async function enrichWebsite(response,env,url){
  if(!response.headers.get('Content-Type')?.includes('text/html')||url.pathname.startsWith('/admin'))return response;
@@ -22,7 +31,7 @@ export async function enrichWebsite(response,env,url){
 
  const rows=(await env.DB.prepare('SELECT id,data_json FROM website_content').all()).results;
  const content=Object.fromEntries(rows.map(r=>[r.id,JSON.parse(r.data_json)]));let html=await response.text();
- const announcement=content.announcement;if(announcement?.published&&announcement.confirmed)html=html.replace('<main id="main" tabindex="-1">',`<main id="main" tabindex="-1"><aside class="site-announcement wrap" aria-label="${ne?'सूचना':'Announcement'}"><strong>${ne?'सूचना':'Notice'}</strong><p>${esc(announcement['text_'+lang])}</p></aside>`);
+ const announcement=content.announcement;if(announcementVisible(announcement))html=html.replace('<main id="main" tabindex="-1">',`<main id="main" tabindex="-1"><aside class="site-announcement wrap" aria-label="${ne?'सूचना':'Announcement'}"><strong>${ne?'सूचना':'Notice'}</strong><p>${esc(announcement['text_'+lang])}</p></aside>`);
  const featured=content.featured;if(path==='/'&&featured?.published&&featured.confirmed){const rows=(await env.DB.prepare("SELECT id,title_en,title_ne FROM service_catalog WHERE active=1 AND availability='available'").all()).results;const selected=featured.service_ids.split(',').map(id=>rows.find(s=>s.id===id)).filter(Boolean);if(selected.length){const panel=`<section class="wrap featured-services" aria-label="${ne?'विशेष सेवा':'Featured services'}"><h2>${ne?'विशेष सेवा':'Featured services'}</h2><div class="task-shortcuts">${selected.map(s=>`<a class="button secondary" href="${ne?'/ne':''}/services/${s.id}">${esc(s['title_'+lang])} →</a>`).join('')}</div></section>`;html=html.replace('<section class="wrap section"><div class="section-head">',panel+'<section class="wrap section"><div class="section-head">');}}
  const service=content['service:'+path.slice('/services/'.length)];
  if(path.startsWith('/services/')&&service?.published&&service.confirmed){const c=service;html=html.replace('</main>',`<section class="wrap section compact prose"><h2>${ne?'तयारी सूची':'Before you start'}</h2><ul>${c['checklist_'+lang].split('\n').filter(Boolean).map(x=>`<li>${esc(x)}</li>`).join('')}</ul><h3>${ne?'अनुमानित समय':'Expected timing'}</h3><p>${esc(c['timeline_'+lang])}</p><p>${ne?'यो अनुमान हो; सम्बन्धित निकाय वा प्रदायकको प्रक्रियाले समय फरक हुन सक्छ।':'This is an estimate; authority or provider processing may change the timing.'}</p></section></main>`);}
