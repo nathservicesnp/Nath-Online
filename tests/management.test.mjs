@@ -4,6 +4,7 @@ import {DatabaseSync} from 'node:sqlite';
 import {readFile} from 'node:fs/promises';
 import {adminApi,administrator} from '../admin-api.mjs';
 import worker from '../worker.mjs';
+import {announcementVisible} from '../website-content.mjs';
 import {catalogPage} from '../catalog.mjs';
 const origin='https://www.nathonline.com.np',actor={email:'owner@example.test',sub:'owner'};
 async function setup(){const sqlite=new DatabaseSync(':memory:');sqlite.exec('PRAGMA foreign_keys=ON');for(const file of ['0001_enquiries.sql','0002_management.sql','0003_seed_catalog.sql','0005_request_finance.sql','0006_customer_experience.sql','0007_followups.sql','0008_service_availability.sql','0009_request_conversation.sql'])sqlite.exec(await readFile('migrations/'+file,'utf8'));
@@ -14,6 +15,44 @@ const request=(path,method='GET',data)=>new Request(origin+path,{method,headers:
 const read=async req=>({data:await req.json()});
 const call=(env,path,method='GET',data)=>{const r=request('/admin/api'+path,method,data);return adminApi(r,env,new URL(r.url),actor,read);};
 const payload={name:'Synthetic Test',phone:'9800000000',service:'education',message:'Please help with my education form',consent:true};
+
+test('work filters match CSV exports and never treat payment as automatic completion',async()=>{
+ const {env,sqlite}=await setup();const refs=[];
+ for(let i=0;i<4;i++)refs.push((await(await worker.fetch(request('/api/requests','POST',{...payload,message:payload.message+' '+i}),env)).json()).reference);
+ sqlite.prepare("UPDATE enquiries SET status='contacted',waiting_customer=1 WHERE reference=?").run(refs[1]);
+ sqlite.prepare("UPDATE enquiries SET status='contacted',follow_up_at=datetime('now','-1 hour') WHERE reference=?").run(refs[2]);
+ sqlite.prepare("UPDATE enquiries SET status='in_progress',quote_json=?,paid_paisa=10000,quote_shared=1,quote_revision=1,accepted_revision=1,accepted_at=datetime('now') WHERE reference=?").run(JSON.stringify([{description:'Help',kind:'service',paisa:10000}]),refs[3]);
+ for(const [work,index] of [['reply',0],['waiting',1],['overdue',2],['closure',3]]){
+  const data=await(await call(env,'/requests?work='+work)).json();assert.deepEqual(data.requests.map(r=>r.reference),[refs[index]]);
+  const csv=await(await call(env,'/exports/requests.csv?work='+work)).text();for(let i=0;i<4;i++)assert.equal(csv.includes(refs[i]),i===index);
+ }
+ assert.equal(sqlite.prepare('SELECT status FROM enquiries WHERE reference=?').get(refs[3]).status,'in_progress');
+ sqlite.prepare("UPDATE enquiries SET paid_paisa=5000 WHERE reference=?").run(refs[3]);assert.equal((await(await call(env,'/requests?work=closure')).json()).requests.length,0);
+ assert.equal((await(await call(env,'/requests?work=waiting&status=new')).json()).requests.length,0);
+ assert.equal((await call(env,'/requests?work=invalid')).status,400);assert.equal((await call(env,'/exports/requests.csv?work=invalid')).status,400);
+ sqlite.exec("UPDATE enquiries SET status='closed'");for(const work of ['reply','waiting','overdue','closure'])assert.equal((await(await call(env,'/requests?work='+work)).json()).requests.length,0);
+ sqlite.close();
+});
+
+test('announcement scheduling validates dates and honours exact start and expiry boundaries',async()=>{
+ const {env,sqlite}=await setup();const content={text_en:'Scheduled notice',text_ne:'सूचना',published:true,confirmed:true,starts_at:'2026-10-04T03:15:00.000Z',ends_at:'2026-10-05T12:15:00.000Z'};
+ assert.equal(announcementVisible(content,Date.parse(content.starts_at)-1),false);assert.equal(announcementVisible(content,Date.parse(content.starts_at)),true);assert.equal(announcementVisible(content,Date.parse(content.ends_at)),false);
+ for(const invalid of [{starts_at:'2026-02-30T03:15:00.000Z'},{ends_at:content.starts_at},{ends_at:'bad'},{starts_at:42}])assert.equal((await call(env,'/website-content','POST',{id:'announcement',version:0,content:{...content,...invalid}})).status,422);
+ assert.equal((await call(env,'/website-content','POST',{id:'announcement',version:0,content})).status,200);
+ const stored=JSON.parse(sqlite.prepare("SELECT data_json FROM website_content WHERE id='announcement'").get().data_json);assert.equal(stored.starts_at,content.starts_at);assert.equal(stored.ends_at,content.ends_at);
+ assert.equal(announcementVisible({...content,published:false},Date.parse(content.starts_at)),false);assert.equal(announcementVisible({...content,starts_at:'',ends_at:''}),true);sqlite.close();
+});
+
+test('service ordering is versioned and draft copies stay hidden from public requests',async()=>{
+ const {env,sqlite}=await setup();const source=sqlite.prepare("SELECT * FROM service_catalog WHERE id='education'").get();const data={...source,items:JSON.parse(source.items_json),active:true,sort_order:99};
+ assert.equal((await call(env,'/services','POST',data)).status,200);assert.equal((await call(env,'/services','POST',data)).status,409);
+ assert.equal(sqlite.prepare("SELECT sort_order FROM service_catalog WHERE id='education'").get().sort_order,99);
+ for(const sort_order of [-1,1.5,10000,'1'])assert.equal((await call(env,'/services','POST',{...data,version:2,sort_order})).status,422);
+ const copy={...data,id:'education-copy',active:false,version:0,sort_order:100};assert.equal((await call(env,'/services','POST',copy)).status,200);
+ assert.equal((await worker.fetch(request('/api/requests','POST',{...payload,service:copy.id}),env)).status,422);
+ const services=(await(await call(env,'/services')).json()).services;assert.equal(services.at(-1).id,copy.id);
+ assert.equal(sqlite.prepare("SELECT active FROM service_catalog WHERE id='education'").get().active,1);sqlite.close();
+});
 test('admin routes fail closed without configured authentication, including forged identity headers',async()=>{const {env,sqlite}=await setup();for(const path of ['/admin','/admin/api/requests','/admin/index.html']){const r=new Request(origin+path,{headers:{'Cf-Access-Authenticated-User-Email':actor.email,'Cf-Access-Jwt-Assertion':'forged'}});assert.equal((await worker.fetch(r,env)).status,401);}assert.equal(await administrator(request('/admin'),{ADMIN_ENABLED:'true'}),null);assert.equal(await administrator(new Request(origin+'/admin',{headers:{'Cf-Access-Jwt-Assertion':'not.a.valid-jwt'}}),{ADMIN_ENABLED:'true',ACCESS_TEAM_DOMAIN:'example.cloudflareaccess.com',ACCESS_AUD:'expected',ADMIN_EMAILS:actor.email}),null);sqlite.close();});
 test('admin can read request content, update completion, reopen, and cannot overwrite a newer change',async()=>{const {env,sqlite}=await setup();const saved=await(await worker.fetch(request('/api/requests','POST',payload),env)).json();const ref=saved.reference;assert.ok(ref);
  const original=await(await call(env,'/requests/'+ref)).json();assert.equal(original.record.message,payload.message);assert.equal(original.record.service_id,'education');

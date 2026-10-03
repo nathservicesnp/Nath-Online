@@ -1,3 +1,4 @@
+import {requestFilters} from './request-filters.mjs';
 import {conversationApi} from './conversation.mjs';
 import {contentApi} from './website-content.mjs';
 import {recordsApi} from './records-api.mjs';
@@ -30,6 +31,7 @@ export function validateService(d){
  if(fields.some(k=>typeof d[k]!=='string'||!d[k].trim()||d[k].length>(k.startsWith('title')?120:1500)))return null;
  if(!Array.isArray(d.items)||d.items.length<1||d.items.length>20||d.items.some(a=>!Array.isArray(a)||a.length!==2||a.some(x=>typeof x!=='string'||!x.trim()||x.length>200)))return null;
  if(!Number.isInteger(d.starting_price)||d.starting_price<100||d.starting_price>1000000)return null;
+ if(d.sort_order!==undefined&&(!Number.isInteger(d.sort_order)||d.sort_order<0||d.sort_order>9999))return null;
  if(!['available','paused','soon'].includes(d.availability??'available'))return null;
  return {...d,availability:d.availability??'available',...Object.fromEntries(fields.map(k=>[k,d[k].trim()]))};
 }
@@ -48,11 +50,9 @@ export async function adminApi(request,env,url,actor,readBody){
  if(path==='/follow-ups'&&request.method==='GET'){const rows=await env.DB.prepare("SELECT reference,follow_up_at FROM enquiries WHERE status<>'closed' AND follow_up_at IS NOT NULL AND follow_up_at<=datetime('now','+1 day') ORDER BY follow_up_at,reference LIMIT 51").all();return reply({reminders:rows.results.slice(0,50),hasMore:rows.results.length>50});}
  if(path==='/me'&&request.method==='GET')return reply({email:actor.email});
  if(path==='/requests'&&request.method==='GET'){
-  const q=(url.searchParams.get('q')||'').trim().slice(0,100),status=url.searchParams.get('status')||'';
-  if(status&&!statuses.has(status))return reply({error:'Invalid status'},400);
-  const page=Math.max(0,Math.min(10000,Number(url.searchParams.get('page'))||0));
-  const where="WHERE (?='' OR status=?) AND (?='' OR instr(lower(reference),lower(?))>0 OR instr(phone,?)>0 OR instr(lower(name),lower(?))>0)";
-  const rows=await env.DB.prepare(`SELECT (SELECT sender FROM request_messages m WHERE m.reference=enquiries.reference ORDER BY id DESC LIMIT 1) AS last_message_sender,reference,name,phone,service,service_id,status,outcome,waiting_customer,created_at,updated_at,version FROM enquiries ${where} ORDER BY created_at DESC,reference DESC LIMIT 51 OFFSET ?`).bind(status,status,q,q,q,q,Math.floor(page)*50).all();
+  const filter=requestFilters(url.searchParams);if(filter.error)return reply({error:filter.error},400);
+  const {where,page,args}=filter;
+  const rows=await env.DB.prepare(`SELECT (SELECT sender FROM request_messages m WHERE m.reference=enquiries.reference ORDER BY id DESC LIMIT 1) AS last_message_sender,reference,name,phone,service,service_id,status,outcome,waiting_customer,created_at,updated_at,version FROM enquiries ${where} ORDER BY created_at DESC,reference DESC LIMIT 51 OFFSET ?`).bind(...args,page*50).all();
   return reply({requests:rows.results.slice(0,50),hasMore:rows.results.length>50});
  }
  const match=path.match(/^\/requests\/(NOS-[A-F0-9]{24})$/);
@@ -79,12 +79,12 @@ export async function adminApi(request,env,url,actor,readBody){
   const parsed=await readBody(request);if(parsed.error)return parsed.error;const d=validateService(parsed.data);if(!d)return reply({error:'Check both languages, category, price and service items'},422);
   if(d.version===0){
    const result=await env.DB.batch([
-    env.DB.prepare('INSERT INTO service_catalog(id,category,icon,title_en,title_ne,description_en,description_ne,note_en,note_ne,items_json,starting_price,active,version,last_actor,availability) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,1,?,?) ON CONFLICT(id) DO NOTHING').bind(d.id,d.category,d.icon,d.title_en,d.title_ne,d.description_en,d.description_ne,d.note_en,d.note_ne,JSON.stringify(d.items),d.starting_price,+d.active,actor.email,d.availability),
+    env.DB.prepare('INSERT INTO service_catalog(id,category,icon,title_en,title_ne,description_en,description_ne,note_en,note_ne,items_json,starting_price,active,version,last_actor,availability,sort_order) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,1,?,?,?) ON CONFLICT(id) DO NOTHING').bind(d.id,d.category,d.icon,d.title_en,d.title_ne,d.description_en,d.description_ne,d.note_en,d.note_ne,JSON.stringify(d.items),d.starting_price,+d.active,actor.email,d.availability,d.sort_order??0),
     env.DB.prepare("INSERT INTO service_events(service_id,actor,action,version) SELECT id,?,'create',version FROM service_catalog WHERE id=? AND changes()=1").bind(actor.email,d.id)
    ]);if(result[0].meta.changes!==1)return reply({error:'That service ID already exists'},409);
   }else{
    const result=await env.DB.batch([
-    env.DB.prepare("UPDATE service_catalog SET category=?,icon=?,title_en=?,title_ne=?,description_en=?,description_ne=?,note_en=?,note_ne=?,items_json=?,starting_price=?,active=?,availability=?,version=version+1,last_actor=?,updated_at=datetime('now') WHERE id=? AND version=?").bind(d.category,d.icon,d.title_en,d.title_ne,d.description_en,d.description_ne,d.note_en,d.note_ne,JSON.stringify(d.items),d.starting_price,+d.active,d.availability,actor.email,d.id,d.version),
+    env.DB.prepare("UPDATE service_catalog SET category=?,icon=?,title_en=?,title_ne=?,description_en=?,description_ne=?,note_en=?,note_ne=?,items_json=?,starting_price=?,active=?,availability=?,sort_order=COALESCE(?,sort_order),version=version+1,last_actor=?,updated_at=datetime('now') WHERE id=? AND version=?").bind(d.category,d.icon,d.title_en,d.title_ne,d.description_en,d.description_ne,d.note_en,d.note_ne,JSON.stringify(d.items),d.starting_price,+d.active,d.availability,d.sort_order??null,actor.email,d.id,d.version),
     env.DB.prepare("INSERT INTO service_events(service_id,actor,action,version) SELECT id,?,'update',version FROM service_catalog WHERE id=? AND changes()=1").bind(actor.email,d.id)
    ]);if(result[0].meta.changes!==1)return reply({error:'This service changed. Reload before saving.'},409);
   }return reply({saved:true});

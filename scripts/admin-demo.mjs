@@ -5,7 +5,7 @@ import {readFile} from 'node:fs/promises';
 import path from 'node:path';
 import {adminApi} from '../admin-api.mjs';
 const db=new DatabaseSync(':memory:');db.exec('PRAGMA foreign_keys=ON');
-for(const name of ['0001_enquiries.sql','0002_management.sql','0003_seed_catalog.sql'])db.exec(await readFile('migrations/'+name,'utf8'));
+for(const name of ['0001_enquiries.sql','0002_management.sql','0003_seed_catalog.sql','0005_request_finance.sql','0006_customer_experience.sql','0007_followups.sql','0008_service_availability.sql','0009_request_conversation.sql'])db.exec(await readFile('migrations/'+name,'utf8'));
 db.prepare('INSERT INTO enquiries(reference,name,phone,service,message,consent_version,idempotency_key,payload_hash,service_id) VALUES(?,?,?,?,?,?,?,?,?)').run('NOS-000000000000000000000001','Synthetic demo customer','9800000000','education','DEMO ONLY: Please help me understand the scholarship application steps.','test','demo','demo','education');
 const stmt=(sql,args=[])=>({bind(...v){return stmt(sql,v);},async first(){return db.prepare(sql).get(...args)||null;},async all(){return {results:db.prepare(sql).all(...args)};},async run(){return {meta:{changes:Number(db.prepare(sql).run(...args).changes)}};}});
 const env={MANAGEMENT_ENABLED:'true',DB:{prepare:stmt,async batch(items){db.exec('BEGIN');try{const result=[];for(const i of items)result.push(await i.run());db.exec('COMMIT');return result;}catch(e){db.exec('ROLLBACK');throw e;}}}};
