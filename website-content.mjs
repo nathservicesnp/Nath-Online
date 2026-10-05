@@ -2,7 +2,7 @@ import {escapeHtml as esc} from './catalog.mjs';
 const reply=(data,status=200)=>Response.json(data,{status,headers:{'Cache-Control':'no-store'}});
 export async function contentApi(request,env,path,readBody){
  if(path!=='/website-content')return null;
- if(request.method==='GET')return reply({content:(await env.DB.prepare('SELECT * FROM website_content ORDER BY id').all()).results});
+ if(request.method==='GET')return reply({content:(await env.DB.prepare("SELECT * FROM website_content WHERE id NOT LIKE 'admin:%' ORDER BY id").all()).results});
  if(request.method!=='POST')return reply({error:'Method not allowed'},405);
  const parsed=await readBody(request);if(parsed.error)return parsed.error;const d=parsed.data;
  if(!/^service:[a-z][a-z0-9-]{1,59}$/.test(d.id||'')&&d.id!=='review'&&d.id!=='home'&&d.id!=='announcement'&&d.id!=='featured')return reply({error:'Invalid content ID'},422);
@@ -29,7 +29,7 @@ export async function enrichWebsite(response,env,url){
  if(!response.headers.get('Content-Type')?.includes('text/html')||url.pathname.startsWith('/admin'))return response;
  const path=url.pathname.replace(/^\/ne(?=\/|$)/,'')||'/',ne=url.pathname.startsWith('/ne'),lang=ne?'ne':'en';
 
- const rows=(await env.DB.prepare('SELECT id,data_json FROM website_content').all()).results;
+ const rows=(await env.DB.prepare("SELECT id,data_json FROM website_content WHERE id NOT LIKE 'admin:%'").all()).results;
  const content=Object.fromEntries(rows.map(r=>[r.id,JSON.parse(r.data_json)]));let html=await response.text();
  const announcement=content.announcement;if(announcementVisible(announcement))html=html.replace('<main id="main" tabindex="-1">',`<main id="main" tabindex="-1"><aside class="site-announcement wrap" aria-label="${ne?'सूचना':'Announcement'}"><strong>${ne?'सूचना':'Notice'}</strong><p>${esc(announcement['text_'+lang])}</p></aside>`);
  const featured=content.featured;if(path==='/'&&featured?.published&&featured.confirmed){const rows=(await env.DB.prepare("SELECT id,title_en,title_ne FROM service_catalog WHERE active=1 AND availability='available'").all()).results;const selected=featured.service_ids.split(',').map(id=>rows.find(s=>s.id===id)).filter(Boolean);if(selected.length){const panel=`<section class="wrap featured-services" aria-label="${ne?'विशेष सेवा':'Featured services'}"><h2>${ne?'विशेष सेवा':'Featured services'}</h2><div class="task-shortcuts">${selected.map(s=>`<a class="button secondary" href="${ne?'/ne':''}/services/${s.id}">${esc(s['title_'+lang])} →</a>`).join('')}</div></section>`;html=html.replace('<section class="wrap section"><div class="section-head">',panel+'<section class="wrap section"><div class="section-head">');}}
