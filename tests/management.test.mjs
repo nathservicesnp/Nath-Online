@@ -16,6 +16,28 @@ const read=async req=>({data:await req.json()});
 const call=(env,path,method='GET',data)=>{const r=request('/admin/api'+path,method,data);return adminApi(r,env,new URL(r.url),actor,read);};
 const payload={name:'Synthetic Test',phone:'9800000000',service:'education',message:'Please help with my education form',consent:true};
 
+test('reply templates support versioned edits, hide and restore without sending messages',async()=>{
+ const {env,sqlite}=await setup();const initial=await(await call(env,'/reply-templates')).json();assert.equal(initial.templates.length,4);
+ const template={...initial.templates[0],title:'Ask about education',category:'education',body:'Please name the application.\nकृपया आवेदनको नाम बताउनुहोस्।'};
+ assert.equal((await call(env,'/reply-templates','POST',{version:0,template})).status,200);
+ assert.equal((await call(env,'/reply-templates','POST',{version:0,template:{...template,body:'Stale'}})).status,409);
+ assert.equal((await call(env,'/reply-templates','POST',{version:1,template:{...template,active:false}})).status,200);
+ let stored=(await(await call(env,'/reply-templates')).json()).templates.find(t=>t.id===template.id);assert.equal(stored.active,false);assert.equal(stored.version,2);assert.equal(stored.body,template.body);
+ assert.equal((await call(env,'/reply-templates','POST',{version:2,template:{...template,active:true}})).status,200);
+ stored=(await(await call(env,'/reply-templates')).json()).templates.find(t=>t.id===template.id);assert.equal(stored.active,true);assert.equal(stored.version,3);
+ assert.equal(sqlite.prepare('SELECT count(*) n FROM request_messages').get().n,0);sqlite.close();
+});
+
+test('reply templates stay private and reject invalid or unauthorised writes',async()=>{
+ const {env,sqlite}=await setup();const template={id:'private-example',title:'Internal library example',body:'DO_NOT_PUBLISH_TEMPLATE',category:'all',waiting:false,active:true};
+ assert.equal((await call(env,'/reply-templates','POST',{version:0,template})).status,200);
+ const content=await(await call(env,'/website-content')).json();assert.ok(!JSON.stringify(content).includes(template.body));
+ const {enrichWebsite}=await import('../website-content.mjs');const html=await(await enrichWebsite(new Response('<main id="main" tabindex="-1"></main>',{headers:{'Content-Type':'text/html'}}),env,new URL(origin))).text();assert.ok(!html.includes(template.body));
+ for(const change of [{body:''},{body:'x'.repeat(1501)},{category:'invalid'},{active:'true'},{id:'../home'}])assert.equal((await call(env,'/reply-templates','POST',{version:1,template:{...template,...change}})).status,422);
+ assert.equal((await worker.fetch(request('/admin/api/reply-templates'),env)).status,401);
+ const req=new Request(origin+'/admin/api/reply-templates',{method:'POST',headers:{Origin:'https://evil.example','X-Nath-Admin':'1'}});assert.equal((await adminApi(req,env,new URL(req.url),actor,read)).status,403);sqlite.close();
+});
+
 test('guided choices use catalogue tasks in the selected language and escape HTML in attributes',async()=>{
  const {sqlite}=await setup();const service=sqlite.prepare("SELECT * FROM service_catalog WHERE id='travel'").get();
  service.items_json=JSON.stringify([['Ticket "quote" <script>','टिकट']]);service.availability='paused';
