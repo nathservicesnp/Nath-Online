@@ -5,7 +5,7 @@ import {readFile} from 'node:fs/promises';
 import {adminApi,administrator} from '../admin-api.mjs';
 import worker from '../worker.mjs';
 import {announcementVisible} from '../website-content.mjs';
-import {catalogPage} from '../catalog.mjs';
+import {catalogPage,serviceCards} from '../catalog.mjs';
 const origin='https://www.nathonline.com.np',actor={email:'owner@example.test',sub:'owner'};
 async function setup(){const sqlite=new DatabaseSync(':memory:');sqlite.exec('PRAGMA foreign_keys=ON');for(const file of ['0001_enquiries.sql','0002_management.sql','0003_seed_catalog.sql','0005_request_finance.sql','0006_customer_experience.sql','0007_followups.sql','0008_service_availability.sql','0009_request_conversation.sql'])sqlite.exec(await readFile('migrations/'+file,'utf8'));
  const statement=(sql,args=[])=>({sql,args,bind(...values){return statement(sql,values);},async first(){return sqlite.prepare(sql).get(...args)||null;},async all(){return {results:sqlite.prepare(sql).all(...args)};},async run(){const r=sqlite.prepare(sql).run(...args);return {meta:{changes:Number(r.changes)}};}});
@@ -15,6 +15,13 @@ const request=(path,method='GET',data)=>new Request(origin+path,{method,headers:
 const read=async req=>({data:await req.json()});
 const call=(env,path,method='GET',data)=>{const r=request('/admin/api'+path,method,data);return adminApi(r,env,new URL(r.url),actor,read);};
 const payload={name:'Synthetic Test',phone:'9800000000',service:'education',message:'Please help with my education form',consent:true};
+
+test('guided choices use catalogue tasks in the selected language and escape HTML in attributes',async()=>{
+ const {sqlite}=await setup();const service=sqlite.prepare("SELECT * FROM service_catalog WHERE id='travel'").get();
+ service.items_json=JSON.stringify([['Ticket "quote" <script>','टिकट']]);service.availability='paused';
+ const en=serviceCards([service]);assert.ok(en.includes('data-tasks="[&quot;Ticket'));assert.ok(en.includes('&lt;script&gt;'));assert.ok(!en.includes('<script>'));assert.ok(en.includes('data-available="false"'));
+ const ne=serviceCards([service],true);assert.ok(ne.includes('data-tasks="[&quot;टिकट&quot;]"'));assert.ok(ne.includes('/ne/services/travel'));sqlite.close();
+});
 
 test('work filters match CSV exports and never treat payment as automatic completion',async()=>{
  const {env,sqlite}=await setup();const refs=[];
