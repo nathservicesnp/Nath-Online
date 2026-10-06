@@ -19,7 +19,7 @@
  const search=document.querySelector('#service-search');
  if(search){const shortcuts=element('div','','task-shortcuts');shortcuts.setAttribute('aria-label',t('Task shortcuts','कामका सर्टकट'));for(const [en,np] of [['Passport','राहदानी'],['PAN','PAN'],['Electricity','विद्युत्'],['Bus','बस'],['Scholarship','छात्रवृत्ति']]){const button=element('button',t(en,np),'button secondary');button.type='button';button.addEventListener('click',()=>{search.value=t(en,np);for(const id of ['category-filter','availability-filter']){const field=document.getElementById(id);if(field)field.value='';}search.dispatchEvent(new Event('input'));search.focus();});shortcuts.append(button);}search.after(shortcuts);}
  const form=document.querySelector('#request-form');if(!form)return;
- form.noValidate=true;
+ form.noValidate=true;if(new URLSearchParams(location.search).get('unlisted')==='1'){const note=element('p',t('Unlisted service — needs assessment. Describe your task and any deadline. We will check whether we can help before confirming availability or charges.','सूचीमा नभएको सेवा — समीक्षा आवश्यक। काम र समयसीमा बताउनुहोस्। उपलब्धता वा शुल्क पुष्टि गर्नुअघि सहयोग गर्न सकिन्छ कि जाँच गर्छौँ।'),'notice');form.before(note);}
  const submit=form.querySelector('button[type=submit]'),feedback=document.querySelector('#form-feedback');
  const groups=[['service','message'],['name','phone','callback_window'],['consent']];
  const titles=[t('Your service','चाहिएको सेवा'),t('Contact details','सम्पर्क विवरण'),t('Review and send','जाँचेर पठाउनुहोस्')];

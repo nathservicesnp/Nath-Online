@@ -1,3 +1,4 @@
+import {suggestionAdmin} from './suggestions.mjs';
 import {requestFilters} from './request-filters.mjs';
 import {replyTemplateApi} from './reply-templates.mjs';
 import {conversationApi} from './conversation.mjs';
@@ -43,6 +44,7 @@ export async function adminApi(request,env,url,actor,readBody){
  const mutation=!['GET','HEAD'].includes(request.method);
  if(mutation&&(request.headers.get('Origin')!==url.origin||request.headers.get('X-Nath-Admin')!=='1'))return reply({error:'Request not allowed'},403);
  const path=url.pathname.replace(/^\/admin\/api/,'');
+ const suggestions=await suggestionAdmin(request,env,url,readBody);if(suggestions)return suggestions;
  const templates=await replyTemplateApi(request,env,path,readBody);if(templates)return templates;
  const messages=await conversationApi(request,env,path,actor,readBody);if(messages)return messages;
  const content=await contentApi(request,env,path,readBody);if(content)return content;
