@@ -1,3 +1,4 @@
+import {submitSuggestion} from './suggestions.mjs';
 import {conversation,sendMessage} from './conversation.mjs';
 import {enrichWebsite} from './website-content.mjs';
 import {passkeyAuth,cleanAuth} from './passkey-auth.mjs';
@@ -15,12 +16,12 @@ async function readBody(request){
  const bytes=new Uint8Array(length);let offset=0;for(const part of chunks){bytes.set(part,offset);offset+=part.length;}try{const data=JSON.parse(new TextDecoder('utf-8',{fatal:true}).decode(bytes));return data&&typeof data==='object'&&!Array.isArray(data)?{data}:{error:json({error:'Invalid body'},400)};}catch{return {error:json({error:'Invalid JSON'},400)};}
 }
 async function api(request,env,url){
- if(!['/api/requests','/api/track','/api/quote-accept','/api/reply'].includes(url.pathname))return json({error:'Not found'},404);
+ if(!['/api/suggestions','/api/requests','/api/track','/api/quote-accept','/api/reply'].includes(url.pathname))return json({error:'Not found'},404);
  if(request.method!=='POST'){const r=json({error:'Method not allowed'},405);r.headers.set('Allow','POST');return r;}
  if(request.headers.get('Origin')!==(env.APP_ENV==='production'?origin:url.origin))return json({error:'Origin not allowed'},403);
  if(!env.DB||!env.REQUEST_LIMITER||env.SUBMISSIONS_ENABLED!=='true')return json({error:'Temporarily unavailable'},503);
  const limit=await env.REQUEST_LIMITER.limit({key:request.headers.get('CF-Connecting-IP')||'local'});if(!limit.success){const r=json({error:'Please wait'},429);r.headers.set('Retry-After','60');return r;}
- const parsed=await readBody(request);if(parsed.error)return parsed.error;const d=parsed.data,phone=phoneOf(d.phone);
+ const parsed=await readBody(request);if(parsed.error)return parsed.error;const d=parsed.data,phone=phoneOf(d.phone);if(url.pathname==='/api/suggestions')return submitSuggestion(request,env,d);
  if(url.pathname==='/api/track'||url.pathname==='/api/quote-accept'||url.pathname==='/api/reply'){
   if(typeof d.reference!=='string'||!/^NOS-[A-F0-9]{24}$/i.test(d.reference.trim())||!/^9[678]\d{8}$/.test(phone))return json({status:null});
   const reference=d.reference.trim().toUpperCase();
