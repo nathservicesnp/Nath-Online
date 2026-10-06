@@ -177,3 +177,7 @@ em{font-family:inherit;font-style:normal;font-weight:650}
 @media(prefers-reduced-motion:no-preference){.request-step:not([hidden]){animation:form-arrive .18s ease-out}.success-mark{animation:saved-arrive .24s ease-out}.service-card{transition:transform .18s,border-color .18s}.button:active{transform:translateY(1px)}}
 @media(hover:hover) and (prefers-reduced-motion:no-preference){.service-card:hover{transform:translateY(-3px);border-color:var(--accent)}}
 @media(prefers-reduced-motion:reduce){.request-step,.success-mark,.service-card,.step-meter span{animation:none!important;transition:none!important}.service-card:hover,.button:active{transform:none!important}}
+
+/* Clear actions without extra panels. */
+.queue-shortcuts{margin-block:1rem;flex-wrap:wrap}.queue-shortcuts [aria-pressed="true"]{background:#123eaa;color:#fff;border-color:#123eaa}#customer-quote,#customer-conversation{scroll-margin-top:7rem}.home-start{margin-block:1rem}.next-action-card .button{margin-top:.5rem}
+@media(prefers-reduced-motion:no-preference){.queue-shortcuts .button{transition:background-color .18s ease,color .18s ease}.next-action-card{animation:form-arrive .18s ease-out}}
