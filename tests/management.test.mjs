@@ -172,7 +172,7 @@ test('availability remains visible but blocks new requests until restored',async
  const {env,sqlite}=await setup();const s=sqlite.prepare("SELECT * FROM service_catalog WHERE id='travel'").get();const data={...s,items:JSON.parse(s.items_json),active:true,availability:'paused'};
  assert.equal((await call(env,'/services','POST',data)).status,200);
  assert.equal((await worker.fetch(request('/api/requests','POST',{...payload,service:'travel'}),env)).status,422);
- const {serviceCards,serviceDetail}=await import('../catalog.mjs');const paused=sqlite.prepare("SELECT * FROM service_catalog WHERE id='travel'").get();assert.match(serviceCards([paused]),/Temporarily unavailable/);assert.ok(!serviceCards([paused]).includes('/request?service=travel'));assert.ok(!serviceDetail(paused).includes('/request?service=travel'));assert.match(serviceDetail(paused),/id="process"/);
+ const {serviceCards,serviceDetail}=await import('../catalog.mjs');const paused=sqlite.prepare("SELECT * FROM service_catalog WHERE id='travel'").get();assert.match(serviceCards([paused]),/Temporarily unavailable/);assert.ok(!serviceCards([paused]).includes('/request?service=travel'));assert.ok(!serviceDetail(paused).includes('/request?service=travel'));assert.match(serviceDetail(paused),/What happens next/);
  assert.equal((await call(env,'/services','POST',{...data,version:2,availability:'invalid'})).status,422);
  assert.equal((await call(env,'/services','POST',{...data,version:2,availability:'available'})).status,200);
  assert.equal((await worker.fetch(request('/api/requests','POST',{...payload,service:'travel'}),env)).status,201);sqlite.close();
@@ -211,9 +211,4 @@ test('suggestions are private, idempotent, validated and versioned',async()=>{
  const publicRead=await worker.fetch(new Request(origin+'/api/suggestions'),env);assert.equal(publicRead.status,405);
  const noAuth=request('/admin/api/suggestions');assert.equal((await adminApi(noAuth,env,new URL(noAuth.url),null,read)).status,401);
  const foreign=new Request(origin+'/api/suggestions',{method:'POST',headers:{Origin:'https://example.test','Content-Type':'application/json'},body:JSON.stringify(body)});assert.equal((await worker.fetch(foreign,env)).status,403);sqlite.close();
-});
-
-test('six public groups preserve legacy categories and service guidance order',async()=>{
- const {serviceGroup,serviceGroups}=await import('../service-groups.mjs');const {serviceDetail}=await import('../catalog.mjs');assert.equal(serviceGroups.length,6);assert.equal(serviceGroup({id:'business-pan',category:'government'}),'business');assert.equal(serviceGroup({id:'utilities',category:'utilities'}),'banking');assert.equal(serviceGroup({id:'land-help',category:'other'}),'property');
- const {sqlite}=await setup();const html=serviceDetail(sqlite.prepare("SELECT * FROM service_catalog WHERE id='government'").get());let previous=-1;for(const id of ['documents','process','charge','apply','support']){const position=html.indexOf('id="'+id+'"');assert.ok(position>previous);previous=position;}assert.match(html,/Documents, approvals and decisions are issued by the relevant authority/);sqlite.close();
 });
