@@ -7,7 +7,7 @@ import worker from '../worker.mjs';
 import {announcementVisible} from '../website-content.mjs';
 import {catalogPage,serviceCards} from '../catalog.mjs';
 const origin='https://www.nathonline.com.np',actor={email:'owner@example.test',sub:'owner'};
-async function setup(){const sqlite=new DatabaseSync(':memory:');sqlite.exec('PRAGMA foreign_keys=ON');for(const file of ['0001_enquiries.sql','0002_management.sql','0003_seed_catalog.sql','0005_request_finance.sql','0006_customer_experience.sql','0007_followups.sql','0008_service_availability.sql','0009_request_conversation.sql','0010_suggestions.sql'])sqlite.exec(await readFile('migrations/'+file,'utf8'));
+async function setup(){const sqlite=new DatabaseSync(':memory:');sqlite.exec('PRAGMA foreign_keys=ON');for(const file of ['0001_enquiries.sql','0002_management.sql','0003_seed_catalog.sql','0005_request_finance.sql','0006_customer_experience.sql','0007_followups.sql','0008_service_availability.sql','0009_request_conversation.sql','0010_suggestions.sql','0011_content_history.sql'])sqlite.exec(await readFile('migrations/'+file,'utf8'));
  const statement=(sql,args=[])=>({sql,args,bind(...values){return statement(sql,values);},async first(){return sqlite.prepare(sql).get(...args)||null;},async all(){return {results:sqlite.prepare(sql).all(...args)};},async run(){const r=sqlite.prepare(sql).run(...args);return {meta:{changes:Number(r.changes)}};}});
  const DB={prepare:statement,async batch(statements){sqlite.exec('BEGIN');try{const result=[];for(const s of statements)result.push(await s.run());sqlite.exec('COMMIT');return result;}catch(e){sqlite.exec('ROLLBACK');throw e;}}};
  return {sqlite,env:{DB,APP_ENV:'production',MANAGEMENT_ENABLED:'true',SUBMISSIONS_ENABLED:'true',REQUEST_LIMITER:{limit:async()=>({success:true})}}};}
@@ -211,4 +211,20 @@ test('suggestions are private, idempotent, validated and versioned',async()=>{
  const publicRead=await worker.fetch(new Request(origin+'/api/suggestions'),env);assert.equal(publicRead.status,405);
  const noAuth=request('/admin/api/suggestions');assert.equal((await adminApi(noAuth,env,new URL(noAuth.url),null,read)).status,401);
  const foreign=new Request(origin+'/api/suggestions',{method:'POST',headers:{Origin:'https://example.test','Content-Type':'application/json'},body:JSON.stringify(body)});assert.equal((await worker.fetch(foreign,env)).status,403);sqlite.close();
+});
+
+test('content history is bounded, excludes templates and preserves stale-write protection',async()=>{
+ const {env,sqlite}=await setup();
+ const content={title_en:'Initial',title_ne:'शीर्षक',intro_en:'Intro',intro_ne:'परिचय',published:false,confirmed:false};
+ assert.equal((await call(env,'/website-content','POST',{id:'home',version:0,content})).status,200);
+ for(let version=1;version<=12;version++)assert.equal((await call(env,'/website-content','POST',{id:'home',version,content:{...content,title_en:'Edit '+version}})).status,200);
+ const history=await(await call(env,'/website-content/history?id=home')).json();assert.equal(history.history.length,10);assert.equal(history.history[0].version,12);assert.equal(history.history.at(-1).version,3);
+ assert.equal((await call(env,'/website-content','POST',{id:'home',version:1,content})).status,409);
+ assert.equal(sqlite.prepare('SELECT count(*) n FROM website_content_history').get().n,10);
+ const before=sqlite.prepare("SELECT data_json FROM website_content WHERE id='home'").get().data_json;
+ await call(env,'/website-content/history?id=home');assert.equal(sqlite.prepare("SELECT data_json FROM website_content WHERE id='home'").get().data_json,before);
+ sqlite.prepare("INSERT INTO website_content(id,data_json) VALUES('admin:private','{}')").run();sqlite.prepare("UPDATE website_content SET data_json='{}',version=2 WHERE id='admin:private'").run();assert.equal(sqlite.prepare("SELECT count(*) n FROM website_content_history WHERE content_id LIKE 'admin:%'").get().n,0);
+ assert.equal((await call(env,'/website-content/history?id=admin:private')).status,422);
+ assert.equal((await worker.fetch(request('/admin/api/website-content/history?id=home'),env)).status,401);
+ sqlite.close();
 });
