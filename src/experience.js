@@ -6,6 +6,8 @@
  const updateHeader=()=>header?.classList.toggle('is-scrolled',window.scrollY>24);
  window.addEventListener('scroll',updateHeader,{passive:true});updateHeader();
  const help=document.querySelector('.floating-help');
+ const serviceAction=document.querySelector('.service-action');
+ if(help&&serviceAction&&'IntersectionObserver' in window){const observer=new IntersectionObserver(entries=>help.classList.toggle('clear-service-action',entries.some(entry=>entry.isIntersecting)),{threshold:0});observer.observe(serviceAction);}
  const helpLink=help?.querySelector('a[href^="https://wa.me/"]');
  const serviceSelect=document.querySelector('#request-form select[name=service]');
  function updateServiceHelp(){
