@@ -1,10 +1,10 @@
 export const discoveryGroups=[
  ['government','Government Services','सरकारी सेवा','building'],
  ['travel','Travel & Ticketing','यात्रा तथा टिकट','ticket'],
- ['business','Business & Tax','व्यवसाय तथा कर','building'],
+ ['business','Business & Tax','व्यवसाय तथा कर','business'],
  ['education','Education & Career','शिक्षा तथा करियर','book'],
  ['banking','Banking & Payments','बैंकिङ तथा भुक्तानी','wallet'],
- ['property','Land & Property','जग्गा तथा सम्पत्ति','building']
+ ['property','Land & Property','जग्गा तथा सम्पत्ति','property']
 ];
 export function discoveryGroupsFor(service){
  const groups=new Set([service.category||service.id]);

@@ -6,6 +6,16 @@
  const updateHeader=()=>header?.classList.toggle('is-scrolled',window.scrollY>24);
  window.addEventListener('scroll',updateHeader,{passive:true});updateHeader();
  const help=document.querySelector('.floating-help');
+ const helpLink=help?.querySelector('a[href^="https://wa.me/"]');
+ const serviceSelect=document.querySelector('#request-form select[name=service]');
+ function updateServiceHelp(){
+  if(!helpLink)return;
+  const onDetail=/^\/(ne\/)?services\/[^/]+\/?$/.test(location.pathname);
+  const title=(onDetail?document.querySelector('main h1')?.textContent:serviceSelect?.value?serviceSelect.selectedOptions[0]?.textContent:'')?.trim().slice(0,160);
+  helpLink.href='https://wa.me/9779867302353'+(title?'?text='+encodeURIComponent(t('Hello Nath, I would like guidance about: ','नमस्ते नाथ, मलाई यस सेवाबारे जानकारी चाहिन्छ: ')+title):'');
+  helpLink.textContent=title?t('Ask about this service on WhatsApp ↗','यस सेवाबारे WhatsApp मा सोध्नुहोस् ↗'):'WhatsApp ↗';
+ }
+ updateServiceHelp();serviceSelect?.addEventListener('change',updateServiceHelp);
  help?.addEventListener('keydown',event=>{if(event.key==='Escape'){help.open=false;help.querySelector('summary').focus();}});
  document.addEventListener('click',event=>{if(help?.open&&!help.contains(event.target))help.open=false;});
  const reducedMotion=window.matchMedia('(prefers-reduced-motion: reduce)');
