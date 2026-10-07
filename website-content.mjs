@@ -1,6 +1,12 @@
 import {escapeHtml as esc} from './catalog.mjs';
 const reply=(data,status=200)=>Response.json(data,{status,headers:{'Cache-Control':'no-store'}});
 export async function contentApi(request,env,path,readBody){
+ if(path==='/website-content/history'){
+  if(request.method!=='GET')return reply({error:'Method not allowed'},405);
+  const id=new URL(request.url).searchParams.get('id')||'';
+  if(!/^(home|review|announcement|featured|service:[a-z][a-z0-9-]{1,59})$/.test(id))return reply({error:'Invalid content ID'},422);
+  return reply({history:(await env.DB.prepare('SELECT version,data_json,saved_at FROM website_content_history WHERE content_id=? ORDER BY version DESC LIMIT 10').bind(id).all()).results});
+ }
  if(path!=='/website-content')return null;
  if(request.method==='GET')return reply({content:(await env.DB.prepare("SELECT * FROM website_content WHERE id NOT LIKE 'admin:%' ORDER BY id").all()).results});
  if(request.method!=='POST')return reply({error:'Method not allowed'},405);

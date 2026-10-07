@@ -7,6 +7,8 @@
  window.addEventListener('scroll',updateHeader,{passive:true});updateHeader();
  const help=document.querySelector('.floating-help');
  const serviceAction=document.querySelector('.service-action');
+ const serviceRequest=serviceAction?.querySelector('a[href]'),mobileRequest=document.querySelector('.mobile-actions a:nth-child(2)');
+ if(serviceRequest&&mobileRequest){mobileRequest.href=serviceRequest.getAttribute('href');mobileRequest.lastChild.textContent=serviceRequest.getAttribute('href').includes('/request?')?t('Request service','सेवा अनुरोध'):t('Ask team','टोलीलाई सोध्नुहोस्');help?.classList.add('service-help');}
  if(help&&serviceAction&&'IntersectionObserver' in window){const observer=new IntersectionObserver(entries=>help.classList.toggle('clear-service-action',entries.some(entry=>entry.isIntersecting)),{threshold:0});observer.observe(serviceAction);}
  const helpLink=help?.querySelector('a[href^="https://wa.me/"]');
  const serviceSelect=document.querySelector('#request-form select[name=service]');
