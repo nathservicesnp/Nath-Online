@@ -19,9 +19,16 @@
  help?.addEventListener('keydown',event=>{if(event.key==='Escape'){help.open=false;help.querySelector('summary').focus();}});
  document.addEventListener('click',event=>{if(help?.open&&!help.contains(event.target))help.open=false;});
  const reducedMotion=window.matchMedia('(prefers-reduced-motion: reduce)');
- const calmMotion=()=>{if(reducedMotion.matches||navigator.connection?.saveData)document.documentElement.dataset.motion='off';};
- calmMotion();reducedMotion.addEventListener('change',calmMotion);
- document.querySelector('#stop-motion')?.addEventListener('click',event=>{document.documentElement.dataset.motion='off';event.currentTarget.textContent=t('Animation off','एनिमेसन बन्द');event.currentTarget.disabled=true;});
+ const motionPreference=document.querySelector('#motion-preference'),skipMotion=document.querySelector('#stop-motion');
+ let motionChoice='auto';try{if(localStorage.getItem('nath-motion')==='off')motionChoice='off';}catch{}
+ if(motionPreference)motionPreference.value=motionChoice;
+ function applyMotion(){const off=motionChoice==='off'||reducedMotion.matches||navigator.connection?.saveData;document.documentElement.dataset.motion=off?'off':'auto';if(off&&skipMotion)skipMotion.hidden=true;}
+ function saveMotion(){try{localStorage.setItem('nath-motion',motionChoice);}catch{}applyMotion();}
+ applyMotion();reducedMotion.addEventListener('change',applyMotion);
+ motionPreference?.addEventListener('change',()=>{motionChoice=motionPreference.value;saveMotion();});
+ skipMotion?.addEventListener('click',()=>{motionChoice='off';if(motionPreference)motionPreference.value='off';saveMotion();});
+ // Hero decoration completes within four seconds; its stop control then retires.
+ if(skipMotion)setTimeout(()=>{skipMotion.hidden=true;},4200);
  const finder=document.querySelector('#guided-finder');
  if(finder){
   const choices=[...document.querySelectorAll('[data-service]')].filter(card=>card.dataset.available!=='false').map(card=>{const link=card.querySelector('h3 a');let tasks=[];try{tasks=JSON.parse(card.dataset.tasks||'[]');}catch{}return {category:card.dataset.category,path:link?.getAttribute('href'),title:link?.textContent,tasks};}).filter(s=>s.path);
