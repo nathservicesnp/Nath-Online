@@ -2,6 +2,15 @@
 (()=>{
  const ne=document.documentElement.lang==='ne',t=(en,np)=>ne?np:en;
  const element=(tag,content,cls)=>{const node=document.createElement(tag);node.textContent=content;if(cls)node.className=cls;return node;};
+ const header=document.querySelector('.site-header');
+ const updateHeader=()=>header?.classList.toggle('is-scrolled',window.scrollY>24);
+ window.addEventListener('scroll',updateHeader,{passive:true});updateHeader();
+ const help=document.querySelector('.floating-help');
+ help?.addEventListener('keydown',event=>{if(event.key==='Escape'){help.open=false;help.querySelector('summary').focus();}});
+ document.addEventListener('click',event=>{if(help?.open&&!help.contains(event.target))help.open=false;});
+ const reducedMotion=window.matchMedia('(prefers-reduced-motion: reduce)');
+ const calmMotion=()=>{if(reducedMotion.matches||navigator.connection?.saveData)document.documentElement.dataset.motion='off';};
+ calmMotion();reducedMotion.addEventListener('change',calmMotion);
  document.querySelector('#stop-motion')?.addEventListener('click',event=>{document.documentElement.dataset.motion='off';event.currentTarget.textContent=t('Animation off','एनिमेसन बन्द');event.currentTarget.disabled=true;});
  const finder=document.querySelector('#guided-finder');
  if(finder){
