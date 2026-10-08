@@ -1,0 +1,33 @@
+name: NathPreview
+options:
+  bundleIdPrefix: np.com.nathonline
+  deploymentTarget:
+    iOS: '16.0'
+targets:
+  NathPreview:
+    type: application
+    platform: iOS
+    sources: [NathPreview]
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: np.com.nathonline.preview
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        SWIFT_VERSION: '5.0'
+        GENERATE_INFOPLIST_FILE: YES
+        INFOPLIST_KEY_CFBundleDisplayName: Nath Online Services
+        INFOPLIST_KEY_UILaunchScreen_Generation: YES
+        INFOPLIST_KEY_UIApplicationSceneManifest_Generation: YES
+        MARKETING_VERSION: '0.5'
+        CURRENT_PROJECT_VERSION: '5'
+        TARGETED_DEVICE_FAMILY: '1,2'
+        CODE_SIGNING_ALLOWED: NO
+schemes:
+  NathPreview:
+    build:
+      targets:
+        NathPreview: all
+
+
+
+
+
